@@ -92,11 +92,11 @@ from .types import (
     StateDict, TaskResult, AgentResponse, ToolFunction, 
     NodeId, WorkflowId, TaskStatus, WorkflowStatus, NodeStatus,
     AgentProtocol, MemoryProtocol, ToolProtocol, StateProtocol,
-    ExecutionResult, CrewGraphConfig, VisualizationConfig
+    ExecutionResult, VisualizationConfig
 )
 
 # Main orchestration class for easy usage
-from .crewgraph import CrewGraph
+from .crewgraph import CrewGraph, CrewGraphConfig
 from .utils.metrics import get_metrics_collector, MetricsCollector, PerformanceMonitor
 
 # Visualization imports (optional)
@@ -149,7 +149,7 @@ __all__ = [
     "StateDict", "TaskResult", "AgentResponse", "ToolFunction",
     "NodeId", "WorkflowId", "TaskStatus", "WorkflowStatus", "NodeStatus",
     "AgentProtocol", "MemoryProtocol", "ToolProtocol", "StateProtocol",
-    "ExecutionResult", "CrewGraphConfig", "VisualizationConfig",
+    "ExecutionResult", "VisualizationConfig", "CrewGraphConfig",
 ]
 
 # Add optional memory backends to __all__ if available
