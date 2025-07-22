@@ -48,6 +48,17 @@ from .utils.logging import setup_logging, get_logger
 from .crewgraph import CrewGraph
 from .utils.metrics import get_metrics_collector, MetricsCollector, PerformanceMonitor
 
+# Visualization imports (optional)
+try:
+    from .visualization import WorkflowVisualizer, ExecutionTracer, MemoryInspector, DebugTools
+    VISUALIZATION_AVAILABLE = True
+except ImportError:
+    WorkflowVisualizer = None
+    ExecutionTracer = None
+    MemoryInspector = None
+    DebugTools = None
+    VISUALIZATION_AVAILABLE = False
+
 __all__ = [
     # Core classes
     "CrewGraph",
@@ -89,6 +100,10 @@ if RedisMemory:
     __all__.append("RedisMemory")
 if FAISSMemory:
     __all__.append("FAISSMemory")
+
+# Add visualization classes to __all__ if available
+if VISUALIZATION_AVAILABLE:
+    __all__.extend(["WorkflowVisualizer", "ExecutionTracer", "MemoryInspector", "DebugTools"])
 
 # Setup default logging
 setup_logging()

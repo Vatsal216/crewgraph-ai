@@ -1314,3 +1314,354 @@ class WorkflowBuilder:
         """Build and return the orchestrator."""
         self.orchestrator.build_graph()
         return self.orchestrator
+    
+    # ============= VISUALIZATION METHODS =============
+    
+    def visualize_workflow(self, output_path: Optional[str] = None, format: str = "html") -> str:
+        """
+        Generate visual representation of workflow graph.
+        
+        Args:
+            output_path: Optional custom output path
+            format: Output format ('html', 'png', 'svg', 'pdf')
+            
+        Returns:
+            Path to generated visualization file
+            
+        Example:
+            ```python
+            orchestrator = GraphOrchestrator("my_workflow")
+            # ... add nodes and edges ...
+            viz_path = orchestrator.visualize_workflow(format="html")
+            print(f"Visualization saved to: {viz_path}")
+            ```
+        """
+        try:
+            from ..visualization.workflow_visualizer import WorkflowVisualizer
+            
+            visualizer = WorkflowVisualizer(output_dir=output_path or "visualizations")
+            
+            # Convert orchestrator state to visualization data
+            workflow_data = self._extract_workflow_data()
+            
+            return visualizer.visualize_workflow_graph(
+                workflow_data=workflow_data,
+                title=f"Workflow: {self.name}",
+                format=format,
+                show_details=True
+            )
+            
+        except ImportError:
+            raise CrewGraphError(
+                "Visualization dependencies not available. "
+                "Install with: pip install crewgraph-ai[visualization]"
+            )
+        except Exception as e:
+            logger.error(f"Failed to visualize workflow: {e}")
+            raise CrewGraphError(f"Workflow visualization failed: {e}")
+    
+    def export_execution_trace(self, include_memory: bool = True) -> Dict[str, Any]:
+        """
+        Export detailed execution trace for debugging.
+        
+        Args:
+            include_memory: Whether to include memory state information
+            
+        Returns:
+            Dictionary containing detailed execution trace
+            
+        Example:
+            ```python
+            trace = orchestrator.export_execution_trace(include_memory=True)
+            print(f"Executed {len(trace['execution_events'])} events")
+            ```
+        """
+        try:
+            trace_data = {
+                "workflow_id": self.id,
+                "workflow_name": self.name,
+                "export_timestamp": time.time(),
+                "workflow_status": self.status.value,
+                "execution_events": self._collect_execution_events(),
+                "node_statistics": self._calculate_node_statistics(),
+                "performance_metrics": self._gather_performance_metrics(),
+                "error_summary": self._summarize_errors()
+            }
+            
+            if include_memory and hasattr(self, 'shared_state') and self.shared_state:
+                try:
+                    from ..visualization.memory_inspector import MemoryInspector
+                    inspector = MemoryInspector(self.shared_state.memory)
+                    trace_data["memory_analysis"] = inspector.get_memory_usage_report()
+                except Exception as e:
+                    logger.warning(f"Failed to include memory analysis: {e}")
+                    trace_data["memory_analysis"] = {"error": str(e)}
+            
+            return trace_data
+            
+        except Exception as e:
+            logger.error(f"Failed to export execution trace: {e}")
+            raise CrewGraphError(f"Execution trace export failed: {e}")
+    
+    def dump_memory_state(self, backend_details: bool = False) -> Dict[str, Any]:
+        """
+        Dump current memory state for inspection.
+        
+        Args:
+            backend_details: Whether to include detailed backend information
+            
+        Returns:
+            Dictionary containing memory state dump
+            
+        Example:
+            ```python
+            memory_dump = orchestrator.dump_memory_state(backend_details=True)
+            print(f"Memory backend: {memory_dump['backend_type']}")
+            ```
+        """
+        try:
+            from ..visualization.memory_inspector import MemoryInspector
+            
+            if not hasattr(self, 'shared_state') or not self.shared_state:
+                return {
+                    "error": "No shared state available",
+                    "timestamp": time.time()
+                }
+            
+            inspector = MemoryInspector(self.shared_state.memory)
+            
+            return inspector.dump_memory_state(
+                include_backend_details=backend_details,
+                include_gc_objects=False  # Avoid performance impact
+            )
+            
+        except ImportError:
+            raise CrewGraphError(
+                "Visualization dependencies not available. "
+                "Install with: pip install crewgraph-ai[visualization]"
+            )
+        except Exception as e:
+            logger.error(f"Failed to dump memory state: {e}")
+            raise CrewGraphError(f"Memory state dump failed: {e}")
+    
+    def generate_debug_report(self) -> Dict[str, Any]:
+        """
+        Generate comprehensive debug report.
+        
+        Returns:
+            Dictionary containing comprehensive debugging information
+            
+        Example:
+            ```python
+            debug_report = orchestrator.generate_debug_report()
+            print(f"Found {len(debug_report['validation_issues'])} issues")
+            ```
+        """
+        try:
+            from ..visualization.debug_tools import DebugTools
+            
+            debug_tools = DebugTools()
+            
+            # Collect workflow components for analysis
+            workflow_data = {
+                "orchestrator": self,
+                "nodes": getattr(self, '_nodes', {}),
+                "edges": getattr(self, '_edges', []),
+                "state": getattr(self, 'shared_state', None),
+                "status": self.status.value,
+                "execution_history": getattr(self, '_execution_history', [])
+            }
+            
+            # Generate comprehensive debug report
+            report_path = debug_tools.generate_debug_report(
+                workflow_data=workflow_data,
+                include_visualizations=True
+            )
+            
+            return {
+                "report_generated": True,
+                "report_path": report_path,
+                "workflow_id": self.id,
+                "workflow_name": self.name,
+                "timestamp": time.time()
+            }
+            
+        except ImportError:
+            raise CrewGraphError(
+                "Visualization dependencies not available. "
+                "Install with: pip install crewgraph-ai[visualization]"
+            )
+        except Exception as e:
+            logger.error(f"Failed to generate debug report: {e}")
+            raise CrewGraphError(f"Debug report generation failed: {e}")
+    
+    # ============= VISUALIZATION HELPER METHODS =============
+    
+    def _extract_workflow_data(self) -> Dict[str, Any]:
+        """Extract workflow data for visualization."""
+        nodes = []
+        edges = []
+        
+        # Extract nodes information
+        if hasattr(self, '_nodes'):
+            for node_id, node_info in self._nodes.items():
+                node_data = {
+                    "id": node_id,
+                    "name": node_id,  # Use ID as name if no better name available
+                    "status": self._get_node_status(node_id),
+                    "type": "task"  # Default type
+                }
+                
+                # Add additional node information if available
+                if isinstance(node_info, dict):
+                    node_data.update(node_info)
+                
+                nodes.append(node_data)
+        
+        # Extract edges information
+        if hasattr(self, '_edges'):
+            for edge in self._edges:
+                if isinstance(edge, dict):
+                    edges.append(edge)
+                elif isinstance(edge, (list, tuple)) and len(edge) >= 2:
+                    edges.append({
+                        "source": edge[0],
+                        "target": edge[1],
+                        "type": "dependency"
+                    })
+        
+        # If no nodes/edges found, try to extract from LangGraph
+        if not nodes and self._state_graph:
+            try:
+                # This would require introspection of the LangGraph structure
+                # Implementation depends on LangGraph's internal API
+                pass
+            except Exception:
+                pass
+        
+        return {
+            "nodes": nodes,
+            "edges": edges,
+            "metadata": {
+                "workflow_id": self.id,
+                "workflow_name": self.name,
+                "status": self.status.value,
+                "node_count": len(nodes),
+                "edge_count": len(edges)
+            }
+        }
+    
+    def _get_node_status(self, node_id: str) -> str:
+        """Get the current status of a node."""
+        # This would check the node's execution status
+        # Implementation depends on how node status is tracked
+        if hasattr(self, '_node_status'):
+            return self._node_status.get(node_id, "pending")
+        return "pending"
+    
+    def _collect_execution_events(self) -> List[Dict[str, Any]]:
+        """Collect execution events for trace export."""
+        events = []
+        
+        if hasattr(self, '_execution_history'):
+            events.extend(self._execution_history)
+        
+        # Add workflow-level events
+        events.append({
+            "event_id": str(uuid.uuid4()),
+            "timestamp": time.time(),
+            "event_type": "workflow_info",
+            "node_id": "__workflow__",
+            "message": f"Workflow {self.name} status: {self.status.value}",
+            "metadata": {
+                "workflow_id": self.id,
+                "workflow_name": self.name
+            }
+        })
+        
+        return events
+    
+    def _calculate_node_statistics(self) -> Dict[str, Any]:
+        """Calculate statistics for each node."""
+        stats = {}
+        
+        if hasattr(self, '_nodes'):
+            for node_id in self._nodes.keys():
+                stats[node_id] = {
+                    "execution_count": 0,
+                    "total_duration": 0.0,
+                    "average_duration": 0.0,
+                    "error_count": 0,
+                    "last_execution": None
+                }
+                
+                # Calculate actual statistics from execution history
+                if hasattr(self, '_execution_history'):
+                    node_events = [e for e in self._execution_history 
+                                 if e.get('node_id') == node_id]
+                    
+                    stats[node_id]["execution_count"] = len(node_events)
+                    
+                    # Calculate duration and error statistics
+                    durations = [e.get('duration', 0) for e in node_events 
+                               if e.get('duration') is not None]
+                    if durations:
+                        stats[node_id]["total_duration"] = sum(durations)
+                        stats[node_id]["average_duration"] = sum(durations) / len(durations)
+                    
+                    error_events = [e for e in node_events 
+                                  if e.get('event_type') == 'error']
+                    stats[node_id]["error_count"] = len(error_events)
+                    
+                    if node_events:
+                        stats[node_id]["last_execution"] = max(
+                            e.get('timestamp', 0) for e in node_events
+                        )
+        
+        return stats
+    
+    def _gather_performance_metrics(self) -> Dict[str, Any]:
+        """Gather performance metrics."""
+        metrics = {
+            "workflow_start_time": getattr(self, 'start_time', None),
+            "workflow_end_time": getattr(self, 'end_time', None),
+            "total_execution_time": 0.0,
+            "node_count": len(getattr(self, '_nodes', {})),
+            "edge_count": len(getattr(self, '_edges', [])),
+            "concurrent_executions": 0,
+            "memory_usage": {}
+        }
+        
+        # Calculate total execution time
+        if hasattr(self, 'start_time') and hasattr(self, 'end_time'):
+            if self.start_time and self.end_time:
+                metrics["total_execution_time"] = self.end_time - self.start_time
+        
+        return metrics
+    
+    def _summarize_errors(self) -> Dict[str, Any]:
+        """Summarize errors that occurred during execution."""
+        error_summary = {
+            "total_errors": 0,
+            "errors_by_node": {},
+            "errors_by_type": {},
+            "recent_errors": []
+        }
+        
+        if hasattr(self, '_execution_history'):
+            error_events = [e for e in self._execution_history 
+                          if e.get('event_type') == 'error']
+            
+            error_summary["total_errors"] = len(error_events)
+            
+            # Group errors by node
+            for error in error_events:
+                node_id = error.get('node_id', 'unknown')
+                error_summary["errors_by_node"][node_id] = (
+                    error_summary["errors_by_node"].get(node_id, 0) + 1
+                )
+            
+            # Keep recent errors (last 10)
+            error_summary["recent_errors"] = error_events[-10:] if error_events else []
+        
+        return error_summary

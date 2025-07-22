@@ -49,13 +49,25 @@ setup(
     extras_require={
         "redis": ["redis>=4.0.0", "hiredis>=2.0.0"],
         "faiss": ["faiss-cpu>=1.7.0", "sentence-transformers>=2.0.0"],
+        "visualization": [
+            "matplotlib>=3.5.0",
+            "plotly>=5.0.0",
+            "networkx>=2.8.0",
+            "graphviz>=0.20.0",
+            "pandas>=1.5.0",
+        ],
         "full": [
             "redis>=4.0.0", 
             "hiredis>=2.0.0",
             "faiss-cpu>=1.7.0", 
             "sentence-transformers>=2.0.0",
             "sqlalchemy>=2.0.0",
-            "aiosqlite>=0.19.0"
+            "aiosqlite>=0.19.0",
+            "matplotlib>=3.5.0",
+            "plotly>=5.0.0",
+            "networkx>=2.8.0",
+            "graphviz>=0.20.0",
+            "pandas>=1.5.0",
         ],
         "dev": [
             "pytest>=7.0.0",
@@ -66,6 +78,7 @@ setup(
             "mypy>=1.5.0",
             "flake8>=6.0.0",
             "pre-commit>=3.0.0",
+            "types-redis>=4.0.0",
         ],
     },
     entry_points={
