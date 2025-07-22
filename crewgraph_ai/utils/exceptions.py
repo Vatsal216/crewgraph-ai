@@ -361,6 +361,44 @@ class CrewGraphSystemError(CrewGraphError):
     pass
 
 
+class StateError(CrewGraphError):
+    """Exception raised for state management errors"""
+    
+    def __init__(self, 
+                 message: str,
+                 state_key: Optional[str] = None,
+                 operation: Optional[str] = None,
+                 **kwargs):
+        """
+        Initialize state error.
+        
+        Args:
+            message: Error message
+            state_key: State key that caused the error
+            operation: State operation that failed
+            **kwargs: Additional error details
+        """
+        details = kwargs.get('details', {})
+        if state_key:
+            details['state_key'] = state_key
+        if operation:
+            details['operation'] = operation
+            
+        super().__init__(
+            message,
+            error_code=kwargs.get('error_code', 'STATE_ERROR'),
+            details=details,
+            suggestions=kwargs.get('suggestions', [
+                "Check state key existence and format",
+                "Verify state backend is connected",
+                "Review state operation permissions"
+            ])
+        )
+        
+        self.state_key = state_key
+        self.operation = operation
+
+
 class CrewGraphUserError(CrewGraphError):
     """Base class for user-caused errors"""
     pass
@@ -374,6 +412,7 @@ MemoryError.__bases__ = (CrewGraphSystemError,)
 PlanningError.__bases__ = (CrewGraphSystemError,)
 ToolError.__bases__ = (CrewGraphSystemError,)
 AgentError.__bases__ = (CrewGraphSystemError,)
+StateError.__bases__ = (CrewGraphSystemError,)
 
 
 def handle_exception(func):

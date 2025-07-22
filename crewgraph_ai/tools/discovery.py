@@ -20,7 +20,7 @@ import threading
 import time
 from enum import Enum
 
-from crewai import Tool
+from crewai.tools import BaseTool as CrewAIBaseTool
 from ..utils.logging import get_logger
 from ..utils.metrics import get_metrics_collector
 from ..utils.exceptions import ToolError
@@ -81,12 +81,12 @@ class ToolDefinition:
             'discovered_by': self.discovered_by
         }
     
-    def to_crewai_tool(self) -> Tool:
+    def to_crewai_tool(self) -> CrewAIBaseTool:
         """Convert to CrewAI Tool instance"""
         if not self.function:
             raise ToolError(f"Cannot create Tool: function not available for {self.name}")
         
-        return Tool(
+        return CrewAIBaseTool(
             name=self.name,
             func=self.function,
             description=self.description

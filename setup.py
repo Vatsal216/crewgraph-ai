@@ -44,6 +44,7 @@ setup(
         "typing-extensions>=4.5.0",
         "asyncio-mqtt>=0.11.0",
         "structlog>=23.1.0",
+        "psutil>=5.9.0",
     ],
     extras_require={
         "redis": ["redis>=4.0.0", "hiredis>=2.0.0"],

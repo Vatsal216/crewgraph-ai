@@ -43,6 +43,17 @@ class ToolCategory(Enum):
     MONITORING = "monitoring"
 
 
+class ToolType(Enum):
+    """Tool type enumeration"""
+    FUNCTION = "function"
+    CLASS = "class"
+    EXTERNAL = "external"
+    BUILTIN = "builtin"
+    CUSTOM = "custom"
+    WEBHOOK = "webhook"
+    API = "api"
+
+
 @dataclass
 class ToolMetadata:
     """

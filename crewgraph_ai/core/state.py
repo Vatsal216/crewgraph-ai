@@ -716,3 +716,138 @@ def create_state_manager(workflow_id: str, **kwargs) -> StateManager:
     logger.info(f"User: Vatsal216, Time: 2025-07-22 12:23:59")
     
     return StateManager(workflow_id, **kwargs)
+
+
+class SharedState:
+    """
+    Simplified shared state interface for CrewGraph AI.
+    
+    This is a convenience wrapper around StateManager that provides
+    a simpler API for common state operations in workflows.
+    
+    Created by: Vatsal216
+    Date: 2025-07-22 12:23:59 UTC
+    """
+    
+    def __init__(self, 
+                 memory=None, 
+                 workflow_id: str = "default_workflow",
+                 **kwargs):
+        """
+        Initialize shared state.
+        
+        Args:
+            memory: Memory backend (optional)
+            workflow_id: Workflow identifier
+            **kwargs: Additional StateManager options
+        """
+        self.memory = memory
+        self.workflow_id = workflow_id
+        
+        # Create underlying state manager
+        self._state_manager = StateManager(
+            workflow_id=workflow_id,
+            **kwargs
+        )
+        
+        logger.info(f"SharedState initialized for workflow: {workflow_id}")
+    
+    def get(self, key: str, default: Any = None) -> Any:
+        """Get value from shared state"""
+        return self._state_manager.get(key, default)
+    
+    def set(self, key: str, value: Any) -> bool:
+        """Set value in shared state"""
+        return self._state_manager.set(key, value)
+    
+    def update(self, data: Dict[str, Any]) -> bool:
+        """Update multiple values in shared state"""
+        return self._state_manager.bulk_set(data)
+    
+    def delete(self, key: str) -> bool:
+        """Delete key from shared state"""
+        return self._state_manager.delete(key)
+    
+    def exists(self, key: str) -> bool:
+        """Check if key exists in shared state"""
+        return self._state_manager.exists(key)
+    
+    def keys(self) -> List[str]:
+        """Get all keys in shared state"""
+        return self._state_manager.list_keys()
+    
+    def clear(self) -> bool:
+        """Clear all state"""
+        return self._state_manager.clear()
+    
+    def reset(self) -> bool:
+        """Reset state (alias for clear)"""
+        return self.clear()
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Export state as dictionary"""
+        return self._state_manager.export_state()
+    
+    def from_dict(self, data: Dict[str, Any]) -> bool:
+        """Import state from dictionary"""
+        return self._state_manager.import_state(data)
+    
+    def save(self, filename: str) -> bool:
+        """Save state to file"""
+        try:
+            data = self.to_dict()
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, default=str)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to save state: {e}")
+            return False
+    
+    def load(self, filename: str) -> bool:
+        """Load state from file"""
+        try:
+            with open(filename, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return self.from_dict(data)
+        except Exception as e:
+            logger.error(f"Failed to load state: {e}")
+            return False
+    
+    def create_snapshot(self, description: str = "") -> str:
+        """Create state snapshot"""
+        return self._state_manager.create_snapshot(description)
+    
+    def restore_snapshot(self, snapshot_id: str) -> bool:
+        """Restore from snapshot"""
+        return self._state_manager.restore_snapshot(snapshot_id)
+    
+    def get_state_manager(self) -> StateManager:
+        """Get underlying state manager for advanced operations"""
+        return self._state_manager
+    
+    def __getitem__(self, key: str) -> Any:
+        """Dictionary-like access for getting values"""
+        value = self.get(key)
+        if value is None and not self.exists(key):
+            raise KeyError(key)
+        return value
+    
+    def __setitem__(self, key: str, value: Any) -> None:
+        """Dictionary-like access for setting values"""
+        self.set(key, value)
+    
+    def __delitem__(self, key: str) -> None:
+        """Dictionary-like access for deleting values"""
+        if not self.delete(key):
+            raise KeyError(key)
+    
+    def __contains__(self, key: str) -> bool:
+        """Dictionary-like access for checking existence"""
+        return self.exists(key)
+    
+    def __len__(self) -> int:
+        """Get number of keys"""
+        return len(self.keys())
+    
+    def __repr__(self) -> str:
+        return f"SharedState(workflow_id='{self.workflow_id}', keys={len(self)})"

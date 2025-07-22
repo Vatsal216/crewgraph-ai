@@ -14,7 +14,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from langgraph.graph import StateGraph, END, START
 from langgraph.graph.message import MessageGraph
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.prebuilt import ToolExecutor
+from langgraph.prebuilt import ToolNode
 from langchain_core.messages import HumanMessage, AIMessage
 from pydantic import BaseModel, Field
 

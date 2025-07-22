@@ -340,6 +340,11 @@ PRODUCTION_CONFIGS = {
         connection_pool_size=20,
         retry_attempts=5,
         use_cluster=True,
+        cluster_nodes=[
+            "redis-cluster-node1.internal:6379",
+            "redis-cluster-node2.internal:6379", 
+            "redis-cluster-node3.internal:6379"
+        ],
         environment="production",
         created_by="Vatsal216",
         created_at="2025-07-22 12:09:19"
