@@ -19,8 +19,17 @@ from .core.state import SharedState, StateManager
 # Memory imports
 from .memory.base import BaseMemory
 from .memory.dict_memory import DictMemory
-from .memory.redis_memory import RedisMemory
-from .memory.faiss_memory import FAISSMemory
+
+# Optional memory imports
+try:
+    from .memory.redis_memory import RedisMemory
+except ImportError:
+    RedisMemory = None
+
+try:
+    from .memory.faiss_memory import FAISSMemory
+except ImportError:
+    FAISSMemory = None
 
 # Tools imports
 from .tools.registry import ToolRegistry
@@ -51,11 +60,9 @@ __all__ = [
     "SharedState",
     "StateManager",
     
-    # Memory classes
+    # Memory classes (always available)
     "BaseMemory",
-    "DictMemory", 
-    "RedisMemory",
-    "FAISSMemory",
+    "DictMemory",
     
     # Tool classes
     "ToolRegistry",
@@ -76,6 +83,12 @@ __all__ = [
     "MetricsCollector", 
     "PerformanceMonitor",
 ]
+
+# Add optional memory backends to __all__ if available
+if RedisMemory:
+    __all__.append("RedisMemory")
+if FAISSMemory:
+    __all__.append("FAISSMemory")
 
 # Setup default logging
 setup_logging()

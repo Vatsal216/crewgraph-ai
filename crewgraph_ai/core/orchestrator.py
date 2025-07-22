@@ -14,9 +14,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from langgraph.graph import StateGraph, END, START
 from langgraph.graph.message import MessageGraph
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.prebuilt import ToolNode
-from langchain_core.messages import HumanMessage, AIMessage
+# from langgraph.prebuilt import ToolNode
+from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from pydantic import BaseModel, Field
+from typing_extensions import TypedDict
 
 from .tasks import TaskWrapper, TaskChain, TaskResult, TaskStatus
 from .state import SharedState
@@ -24,6 +25,17 @@ from ..utils.logging import get_logger
 from ..utils.exceptions import CrewGraphError, ValidationError, ExecutionError
 
 logger = get_logger(__name__)
+
+
+class DefaultState(TypedDict):
+    """Enhanced state schema with LangChain message support"""
+    messages: List[BaseMessage]  # ← Enhanced with proper message types
+    current_node: str
+    results: Dict[str, Any]
+    errors: List[str]
+    metadata: Dict[str, Any]
+    conversation_id: Optional[str]
+    task_context: Dict[str, Any]
 
 
 class WorkflowStatus(Enum):
@@ -86,8 +98,11 @@ class GraphOrchestrator:
         
         # LangGraph integration
         self._state_graph: Optional[StateGraph] = None
+        self._message_graph: Optional[MessageGraph] = None  # ← New MessageGraph support
         self._compiled_graph: Optional[Any] = None
+        self._compiled_message_graph: Optional[Any] = None  # ← Compiled MessageGraph
         self._checkpointer = MemorySaver() if enable_checkpoints else None
+        self._workflow_mode: str = "state"  # "state" or "message"
         
         # Workflow components
         self._nodes: Dict[str, Callable] = {}
@@ -128,6 +143,15 @@ class GraphOrchestrator:
         """
         return self._state_graph
     
+    def get_message_graph(self) -> Optional[MessageGraph]:
+        """
+        Get direct access to the underlying LangGraph MessageGraph.
+        
+        Returns:
+            MessageGraph instance for conversation-based workflows
+        """
+        return self._message_graph
+    
     def get_compiled_graph(self) -> Optional[Any]:
         """
         Get the compiled LangGraph for execution.
@@ -136,6 +160,15 @@ class GraphOrchestrator:
             Compiled graph instance
         """
         return self._compiled_graph
+    
+    def get_compiled_message_graph(self) -> Optional[Any]:
+        """
+        Get the compiled MessageGraph for execution.
+        
+        Returns:
+            Compiled MessageGraph instance
+        """
+        return self._compiled_message_graph
     
     def create_state_graph(self, state_schema: Optional[Any] = None) -> StateGraph:
         """
@@ -150,19 +183,10 @@ class GraphOrchestrator:
         if state_schema:
             self._state_graph = StateGraph(state_schema)
         else:
-            # Default state schema
-            from typing_extensions import TypedDict
-            
-            class DefaultState(TypedDict):
-                messages: List[str]
-                current_node: str
-                results: Dict[str, Any]
-                errors: List[str]
-                metadata: Dict[str, Any]
-            
+            # Use enhanced default state schema with message support
             self._state_graph = StateGraph(DefaultState)
         
-        logger.info(f"StateGraph created for workflow '{self.name}'")
+        logger.info(f"StateGraph created for workflow '{self.name}' with message support")
         return self._state_graph
     
     def add_node(self, 
@@ -324,20 +348,36 @@ class GraphOrchestrator:
     
     def build_graph(self) -> None:
         """
-        Build and compile the workflow graph.
+        Build and compile the workflow graph (supports both StateGraph and MessageGraph).
         """
         try:
-            if not self._state_graph:
-                raise CrewGraphError("No StateGraph created. Add nodes first.")
-            
-            # Compile the graph with checkpointing if enabled
-            if self._checkpointer:
-                self._compiled_graph = self._state_graph.compile(checkpointer=self._checkpointer)
+            if self._workflow_mode == "message":
+                # Build MessageGraph workflow
+                if not self._message_graph:
+                    raise CrewGraphError("No MessageGraph created. Enable message mode first.")
+                
+                # Compile the MessageGraph with checkpointing if enabled
+                if self._checkpointer:
+                    self._compiled_message_graph = self._message_graph.compile(checkpointer=self._checkpointer)
+                else:
+                    self._compiled_message_graph = self._message_graph.compile()
+                
+                logger.info(f"MessageGraph workflow '{self.name}' compiled successfully")
+                
             else:
-                self._compiled_graph = self._state_graph.compile()
+                # Build StateGraph workflow (default)
+                if not self._state_graph:
+                    raise CrewGraphError("No StateGraph created. Add nodes first.")
+                
+                # Compile the graph with checkpointing if enabled
+                if self._checkpointer:
+                    self._compiled_graph = self._state_graph.compile(checkpointer=self._checkpointer)
+                else:
+                    self._compiled_graph = self._state_graph.compile()
+                
+                logger.info(f"StateGraph workflow '{self.name}' compiled successfully")
             
             self.is_built = True
-            logger.info(f"Workflow '{self.name}' compiled successfully")
             
         except Exception as e:
             logger.error(f"Failed to build workflow '{self.name}': {e}")
@@ -460,6 +500,79 @@ class GraphOrchestrator:
                 error=error_msg,
                 execution_time=execution_time
             )
+    
+    # ============= MESSAGE HANDLING METHODS =============
+    
+    def add_human_message(self, content: str, **kwargs) -> None:
+        """Add HumanMessage to current workflow state"""
+        message = HumanMessage(content=content, **kwargs)
+        # Store for next execution if state is available
+        if hasattr(self, '_current_state') and self._current_state:
+            self._current_state.setdefault('messages', []).append(message)
+        logger.debug(f"Added HumanMessage: {content[:100]}...")
+        
+    def add_ai_message(self, content: str, **kwargs) -> None:
+        """Add AIMessage to current workflow state"""
+        message = AIMessage(content=content, **kwargs)
+        # Store for next execution if state is available
+        if hasattr(self, '_current_state') and self._current_state:
+            self._current_state.setdefault('messages', []).append(message)
+        logger.debug(f"Added AIMessage: {content[:100]}...")
+        
+    def get_message_history(self) -> List[BaseMessage]:
+        """Get complete message history from workflow"""
+        if hasattr(self, '_current_state') and self._current_state:
+            return self._current_state.get('messages', [])
+        return []
+        
+    def execute_with_messages(self, 
+                             initial_messages: List[BaseMessage],
+                             state: Optional[Dict] = None,
+                             config: Optional[Dict[str, Any]] = None) -> WorkflowResult:
+        """Execute workflow with LangChain message context"""
+        if not state:
+            state = {}
+        
+        # Initialize enhanced state with messages
+        enhanced_state = state.copy()
+        enhanced_state['messages'] = initial_messages
+        enhanced_state.setdefault('conversation_id', str(uuid.uuid4()))
+        enhanced_state.setdefault('task_context', {})
+        
+        # Store current state for message tracking
+        self._current_state = enhanced_state
+        
+        logger.info(f"Executing workflow with {len(initial_messages)} initial messages")
+        return self.execute(enhanced_state, config)
+    
+    def execute_conversation(self,
+                           conversation_id: str,
+                           new_message: Union[str, BaseMessage],
+                           state: Optional[Dict] = None,
+                           config: Optional[Dict[str, Any]] = None) -> WorkflowResult:
+        """Execute workflow in conversation mode"""
+        # Convert string to HumanMessage if needed
+        if isinstance(new_message, str):
+            message = HumanMessage(content=new_message)
+        else:
+            message = new_message
+        
+        # Initialize state with conversation context
+        if not state:
+            state = {}
+        
+        enhanced_state = state.copy()
+        enhanced_state.setdefault('messages', []).append(message)
+        enhanced_state['conversation_id'] = conversation_id
+        enhanced_state.setdefault('task_context', {})
+        
+        # Store current state for message tracking
+        self._current_state = enhanced_state
+        
+        logger.info(f"Executing conversation {conversation_id} with new message")
+        return self.execute(enhanced_state, config)
+    
+    # ============= END MESSAGE HANDLING METHODS =============
     
     async def execute_async(self,
                            state: Union[SharedState, Dict[str, Any]],
@@ -719,6 +832,483 @@ class WorkflowBuilder:
                 self.orchestrator.add_node(name, func)
                 self.orchestrator.add_edge(self._current_node, name)
         return self
+    
+    # ============= MESSAGEGRAPH WORKFLOW METHODS =============
+    
+    def enable_message_mode(self) -> None:
+        """
+        Switch orchestrator to message-based workflow mode using MessageGraph.
+        
+        This enables conversation-aware workflows where agents communicate
+        through structured LangChain messages instead of generic state.
+        """
+        self._workflow_mode = "message"
+        self._message_graph = MessageGraph()
+        logger.info(f"Enabled MessageGraph mode for workflow '{self.name}'")
+    
+    def create_message_graph(self) -> MessageGraph:
+        """
+        Create and return a new MessageGraph for conversation-based workflows.
+        
+        Returns:
+            MessageGraph instance configured with checkpointing
+        """
+        if not self._message_graph:
+            self._message_graph = MessageGraph()
+            self._workflow_mode = "message"
+            
+        logger.info(f"Created MessageGraph for workflow '{self.name}'")
+        return self._message_graph
+    
+    def add_message_node(self, name: str, agent_func: Callable) -> 'GraphOrchestrator':
+        """
+        Add a node that processes messages in MessageGraph workflow.
+        
+        Args:
+            name: Node identifier
+            agent_func: Function that takes List[BaseMessage] and returns BaseMessage or str
+            
+        Returns:
+            Self for method chaining
+        """
+        if not self._message_graph:
+            self.create_message_graph()
+        
+        def message_wrapper(messages: List[BaseMessage]) -> List[BaseMessage]:
+            """Wrapper to ensure proper message handling"""
+            try:
+                # Call the agent function with messages
+                response = agent_func(messages, {})  # Empty state for message mode
+                
+                # Convert response to proper message type
+                if isinstance(response, str):
+                    new_message = AIMessage(content=response)
+                elif isinstance(response, BaseMessage):
+                    new_message = response
+                else:
+                    # Handle TaskResult or other types
+                    content = str(response)
+                    if hasattr(response, 'result'):
+                        content = str(response.result)
+                    new_message = AIMessage(content=content)
+                
+                # Return updated message list
+                return messages + [new_message]
+                
+            except Exception as e:
+                logger.error(f"Error in message node '{name}': {e}")
+                error_message = AIMessage(
+                    content=f"Error in {name}: {str(e)}",
+                    additional_kwargs={'error': True, 'node': name}
+                )
+                return messages + [error_message]
+        
+        self._message_graph.add_node(name, message_wrapper)
+        self._nodes[name] = message_wrapper
+        
+        logger.info(f"Added message node '{name}' to MessageGraph")
+        return self
+    
+    def add_conversation_agent(self, name: str, agent_func: Callable) -> 'GraphOrchestrator':
+        """
+        Add a conversation-aware agent to the MessageGraph workflow.
+        
+        Args:
+            name: Agent identifier
+            agent_func: Function that processes conversation context
+            
+        Returns:
+            Self for method chaining
+        """
+        if not self._message_graph:
+            self.create_message_graph()
+        
+        def conversation_wrapper(messages: List[BaseMessage]) -> List[BaseMessage]:
+            """Enhanced wrapper for conversation-aware agents"""
+            try:
+                # Extract conversation context
+                conversation_context = {
+                    'messages': messages,
+                    'message_count': len(messages),
+                    'latest_human_message': None,
+                    'latest_ai_message': None,
+                    'conversation_summary': ""
+                }
+                
+                # Get latest messages for context
+                for msg in reversed(messages):
+                    if isinstance(msg, HumanMessage) and not conversation_context['latest_human_message']:
+                        conversation_context['latest_human_message'] = msg.content
+                    elif isinstance(msg, AIMessage) and not conversation_context['latest_ai_message']:
+                        conversation_context['latest_ai_message'] = msg.content
+                    
+                    if conversation_context['latest_human_message'] and conversation_context['latest_ai_message']:
+                        break
+                
+                # Create conversation summary
+                human_count = sum(1 for msg in messages if isinstance(msg, HumanMessage))
+                ai_count = sum(1 for msg in messages if isinstance(msg, AIMessage))
+                conversation_context['conversation_summary'] = f"Conversation with {human_count} human messages and {ai_count} AI responses"
+                
+                # Call agent with enhanced context
+                response = agent_func(messages, conversation_context)
+                
+                # Process response
+                if isinstance(response, BaseMessage):
+                    new_message = response
+                elif isinstance(response, str):
+                    new_message = AIMessage(
+                        content=response,
+                        additional_kwargs={
+                            'agent': name,
+                            'conversation_turn': len(messages) + 1,
+                            'timestamp': time.time()
+                        }
+                    )
+                else:
+                    # Handle complex responses
+                    content = str(response)
+                    if hasattr(response, 'result'):
+                        content = str(response.result)
+                    
+                    new_message = AIMessage(
+                        content=content,
+                        additional_kwargs={
+                            'agent': name,
+                            'conversation_turn': len(messages) + 1,
+                            'timestamp': time.time(),
+                            'response_type': type(response).__name__
+                        }
+                    )
+                
+                return messages + [new_message]
+                
+            except Exception as e:
+                logger.error(f"Error in conversation agent '{name}': {e}")
+                error_message = AIMessage(
+                    content=f"I encountered an error while processing your request: {str(e)}",
+                    additional_kwargs={
+                        'error': True,
+                        'agent': name,
+                        'timestamp': time.time()
+                    }
+                )
+                return messages + [error_message]
+        
+        self._message_graph.add_node(name, conversation_wrapper)
+        self._nodes[name] = conversation_wrapper
+        
+        logger.info(f"Added conversation agent '{name}' to MessageGraph")
+        return self
+    
+    def execute_conversation(self, 
+                           initial_messages: List[BaseMessage],
+                           config: Optional[Dict[str, Any]] = None) -> List[BaseMessage]:
+        """
+        Execute conversation-based workflow using MessageGraph.
+        
+        Args:
+            initial_messages: Starting messages for the conversation
+            config: Additional configuration for execution
+            
+        Returns:
+            Complete message history after workflow execution
+        """
+        if not self._message_graph:
+            raise CrewGraphError("MessageGraph not created. Call create_message_graph() first.")
+        
+        if not self.is_built:
+            raise CrewGraphError("MessageGraph not built. Call build() first.")
+        
+        try:
+            start_time = time.time()
+            self.status = WorkflowStatus.RUNNING
+            
+            logger.info(f"Executing conversation with {len(initial_messages)} initial messages")
+            
+            # Compile the MessageGraph if not already compiled
+            if not self._compiled_message_graph:
+                self._compiled_message_graph = self._message_graph.compile(
+                    checkpointer=self._checkpointer
+                )
+            
+            # Execute the conversation
+            result_messages = self._compiled_message_graph.invoke(
+                initial_messages,
+                config=config or {}
+            )
+            
+            self.status = WorkflowStatus.COMPLETED
+            execution_time = time.time() - start_time
+            
+            logger.info(f"Conversation completed in {execution_time:.2f}s with {len(result_messages)} messages")
+            
+            return result_messages
+            
+        except Exception as e:
+            self.status = WorkflowStatus.FAILED
+            logger.error(f"Conversation execution failed: {e}")
+            raise ExecutionError(f"Conversation execution failed: {e}") from e
+    
+    def add_message_edge(self, from_node: str, to_node: str) -> 'GraphOrchestrator':
+        """
+        Add edge between nodes in MessageGraph.
+        
+        Args:
+            from_node: Source node name
+            to_node: Target node name
+            
+        Returns:
+            Self for method chaining
+        """
+        if not self._message_graph:
+            self.create_message_graph()
+        
+        self._message_graph.add_edge(from_node, to_node)
+        self._edges.append((from_node, to_node))
+        
+        logger.info(f"Added message edge: {from_node} -> {to_node}")
+        return self
+    
+    def set_message_entry_point(self, node_name: str) -> 'GraphOrchestrator':
+        """
+        Set entry point for MessageGraph workflow.
+        
+        Args:
+            node_name: Name of the entry node
+            
+        Returns:
+            Self for method chaining
+        """
+        if not self._message_graph:
+            self.create_message_graph()
+        
+        self._message_graph.set_entry_point(node_name)
+        logger.info(f"Set message entry point: {node_name}")
+        return self
+    
+    def set_message_finish_point(self, node_name: str) -> 'GraphOrchestrator':
+        """
+        Set finish point for MessageGraph workflow.
+        
+        Args:
+            node_name: Name of the finish node
+            
+        Returns:
+            Self for method chaining
+        """
+        if not self._message_graph:
+            self.create_message_graph()
+        
+        self._message_graph.set_finish_point(node_name)
+        logger.info(f"Set message finish point: {node_name}")
+        return self
+    
+    # ============= END MESSAGEGRAPH WORKFLOW METHODS =============
+    
+    def with_conversation(self, messages: List[BaseMessage]):
+        """Initialize workflow with conversation context"""
+        # Store initial messages for the workflow
+        self._initial_messages = messages
+        return self
+    
+    def add_conversation_node(self, name: str, agent_func: Callable):
+        """Add node that handles conversation messages"""
+        def conversation_wrapper(state: Dict[str, Any]) -> Dict[str, Any]:
+            messages = state.get('messages', [])
+            
+            # Execute agent function with message context
+            try:
+                result = agent_func(messages, state)
+                
+                # Handle different result types
+                if isinstance(result, str):
+                    # Create AI message from string result
+                    ai_message = AIMessage(
+                        content=result,
+                        additional_kwargs={
+                            'node_name': name,
+                            'timestamp': time.time()
+                        }
+                    )
+                    state['messages'].append(ai_message)
+                elif isinstance(result, BaseMessage):
+                    # Add message directly
+                    state['messages'].append(result)
+                elif isinstance(result, dict):
+                    # Update state with result dict
+                    state.update(result)
+                    # If result contains a message, add it
+                    if 'message' in result:
+                        if isinstance(result['message'], str):
+                            ai_message = AIMessage(content=result['message'])
+                            state['messages'].append(ai_message)
+                        elif isinstance(result['message'], BaseMessage):
+                            state['messages'].append(result['message'])
+                
+                # Update current node
+                state['current_node'] = name
+                
+                return state
+                
+            except Exception as e:
+                logger.error(f"Conversation node '{name}' failed: {e}")
+                # Add error message
+                error_message = AIMessage(
+                    content=f"Error in {name}: {str(e)}",
+                    additional_kwargs={'error': True, 'node_name': name}
+                )
+                state['messages'].append(error_message)
+                state.setdefault('errors', []).append(f"Node '{name}' failed: {str(e)}")
+                return state
+        
+        return self.add_node(name, conversation_wrapper)
+    
+    def add_human_input_node(self, name: str, prompt: str = "Enter your message:"):
+        """Add node that waits for human input"""
+        def human_input_wrapper(state: Dict[str, Any]) -> Dict[str, Any]:
+            # In a real implementation, this would handle user input
+            # For now, we'll check if there's pending human input in state
+            human_input = state.get('pending_human_input', '')
+            
+            if human_input:
+                human_message = HumanMessage(
+                    content=human_input,
+                    additional_kwargs={
+                        'node_name': name,
+                        'timestamp': time.time()
+                    }
+                )
+                state['messages'].append(human_message)
+                # Clear pending input
+                state.pop('pending_human_input', None)
+            
+            state['current_node'] = name
+            return state
+        
+        return self.add_node(name, human_input_wrapper)
+    
+    def add_memory_node(self, name: str, memory_backend, conversation_id: str):
+        """Add node that saves/loads conversation from memory"""
+        def memory_wrapper(state: Dict[str, Any]) -> Dict[str, Any]:
+            try:
+                # Save current conversation to memory
+                messages = state.get('messages', [])
+                if messages:
+                    success = memory_backend.save_conversation(conversation_id, messages)
+                    if success:
+                        logger.info(f"Saved {len(messages)} messages to conversation {conversation_id}")
+                    else:
+                        logger.warning(f"Failed to save conversation {conversation_id}")
+                
+                state['current_node'] = name
+                return state
+                
+            except Exception as e:
+                logger.error(f"Memory node '{name}' failed: {e}")
+                state.setdefault('errors', []).append(f"Memory operation failed: {str(e)}")
+                return state
+        
+        return self.add_node(name, memory_wrapper)
+    
+    def with_message_flow(self):
+        """Configure workflow for message-based execution using MessageGraph"""
+        # Enable message mode
+        self.enable_message_mode()
+        
+        # Create default conversation state if using StateGraph
+        if self._workflow_mode == "state":
+            if not hasattr(self, '_initial_messages'):
+                self._initial_messages = []
+            
+            # Set entry point to message initialization if no entry point set
+            def init_messages(state: Dict[str, Any]) -> Dict[str, Any]:
+                if 'messages' not in state:
+                    state['messages'] = getattr(self, '_initial_messages', [])
+                return state
+            
+            # Add initialization node for StateGraph
+            self.add_node("__init_messages__", init_messages)
+        
+        logger.info(f"Configured message flow for workflow '{self.name}' in {self._workflow_mode} mode")
+        return self
+    
+    def add_conversation_node(self, name: str, agent_func: Callable):
+        """Add conversation-aware node (works with both StateGraph and MessageGraph)"""
+        if self._workflow_mode == "message":
+            # Use MessageGraph approach
+            return self.add_conversation_agent(name, agent_func)
+        else:
+            # Use StateGraph approach with message context
+            def message_context_wrapper(state: Dict[str, Any]) -> Dict[str, Any]:
+                try:
+                    messages = state.get('messages', [])
+                    
+                    # Call agent with message context
+                    response = agent_func(messages, state)
+                    
+                    # Convert response to message and add to state
+                    if isinstance(response, str):
+                        new_message = AIMessage(
+                            content=response,
+                            additional_kwargs={
+                                'agent': name,
+                                'timestamp': time.time()
+                            }
+                        )
+                    elif isinstance(response, BaseMessage):
+                        new_message = response
+                    else:
+                        # Handle complex responses
+                        content = str(response)
+                        if hasattr(response, 'result'):
+                            content = str(response.result)
+                        
+                        new_message = AIMessage(
+                            content=content,
+                            additional_kwargs={
+                                'agent': name,
+                                'timestamp': time.time(),
+                                'response_type': type(response).__name__
+                            }
+                        )
+                    
+                    # Update state with new message
+                    updated_messages = messages + [new_message]
+                    state['messages'] = updated_messages
+                    state['current_node'] = name
+                    
+                    return state
+                    
+                except Exception as e:
+                    logger.error(f"Conversation node '{name}' failed: {e}")
+                    error_message = AIMessage(
+                        content=f"Error in {name}: {str(e)}",
+                        additional_kwargs={
+                            'error': True,
+                            'agent': name,
+                            'timestamp': time.time()
+                        }
+                    )
+                    
+                    messages = state.get('messages', [])
+                    state['messages'] = messages + [error_message]
+                    state.setdefault('errors', []).append(f"Node '{name}' failed: {str(e)}")
+                    
+                    return state
+            
+            return self.add_node(name, message_context_wrapper)
+            state.setdefault('conversation_id', str(uuid.uuid4()))
+            state.setdefault('task_context', {})
+            return state
+        
+        self.orchestrator.add_node('__init_messages__', init_messages)
+        self.orchestrator.set_entry_point('__init_messages__')
+        self._current_node = '__init_messages__'
+        
+        return self
+    
+    # ============= END MESSAGE-AWARE WORKFLOW BUILDING =============
     
     def build(self) -> GraphOrchestrator:
         """Build and return the orchestrator."""

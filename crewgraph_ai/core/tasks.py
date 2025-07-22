@@ -12,6 +12,7 @@ import threading
 
 from crewai import Task as CrewTask
 from pydantic import BaseModel, Field
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 
 from ..utils.logging import get_logger
 from ..utils.exceptions import CrewGraphError, ValidationError, ExecutionError
@@ -340,6 +341,164 @@ class TaskWrapper:
                 agent_name=getattr(self.assigned_agent, 'name', None),
                 retry_count=self.retry_count
             )
+    
+    # ============= MESSAGE HANDLING METHODS =============
+    
+    def execute_with_message_context(self, 
+                                   messages: List[BaseMessage],
+                                   state: Dict[str, Any]) -> TaskResult:
+        """Execute task with message context and enhanced conversation awareness"""
+        # Prepare enhanced state with messages
+        enhanced_state = state.copy()
+        enhanced_state['messages'] = messages
+        
+        # Extract conversation context from messages
+        if messages:
+            # Add latest human message content to context if available
+            for msg in reversed(messages):
+                if isinstance(msg, HumanMessage):
+                    enhanced_state['user_input'] = msg.content
+                    break
+        
+        # Add conversation summary to context
+        enhanced_state['conversation_context'] = self._create_conversation_summary(messages)
+        
+        logger.info(f"Executing task '{self.name}' with {len(messages)} message context")
+        return self.execute(enhanced_state)
+    
+    def execute_as_message_agent(self, 
+                                messages: List[BaseMessage],
+                                state: Dict[str, Any] = None) -> BaseMessage:
+        """
+        Execute task as a message-based agent for MessageGraph integration.
+        
+        This method allows TaskWrapper to be used directly in MessageGraph workflows.
+        Returns a BaseMessage instead of TaskResult for proper message flow.
+        """
+        try:
+            # Execute with message context
+            result = self.execute_with_message_context(messages, state or {})
+            
+            # Convert result to proper message
+            if result.success:
+                response_message = AIMessage(
+                    content=str(result.result),
+                    additional_kwargs={
+                        'task_id': self.id,
+                        'task_name': self.name,
+                        'agent_name': result.agent_name,
+                        'execution_time': result.execution_time,
+                        'success': True,
+                        'conversation_turn': len(messages) + 1,
+                        'timestamp': time.time()
+                    }
+                )
+            else:
+                response_message = AIMessage(
+                    content=f"I encountered an issue while executing the task: {result.error}",
+                    additional_kwargs={
+                        'task_id': self.id,
+                        'task_name': self.name,
+                        'execution_time': result.execution_time,
+                        'success': False,
+                        'error': result.error,
+                        'conversation_turn': len(messages) + 1,
+                        'timestamp': time.time()
+                    }
+                )
+            
+            return response_message
+            
+        except Exception as e:
+            logger.error(f"Task '{self.name}' execution as message agent failed: {e}")
+            return AIMessage(
+                content=f"I apologize, but I encountered an error while processing your request: {str(e)}",
+                additional_kwargs={
+                    'task_id': self.id,
+                    'task_name': self.name,
+                    'success': False,
+                    'error': str(e),
+                    'conversation_turn': len(messages) + 1,
+                    'timestamp': time.time()
+                }
+            )
+    
+    def _create_conversation_summary(self, messages: List[BaseMessage]) -> Dict[str, Any]:
+        """Create a summary of the conversation for context"""
+        human_count = sum(1 for msg in messages if isinstance(msg, HumanMessage))
+        ai_count = sum(1 for msg in messages if isinstance(msg, AIMessage))
+        
+        # Get recent context (last 3 messages)
+        recent_messages = messages[-3:] if len(messages) > 3 else messages
+        recent_context = []
+        
+        for msg in recent_messages:
+            msg_type = "Human" if isinstance(msg, HumanMessage) else "AI"
+            content_preview = msg.content[:100] + "..." if len(msg.content) > 100 else msg.content
+            recent_context.append(f"{msg_type}: {content_preview}")
+        
+        return {
+            'total_messages': len(messages),
+            'human_messages': human_count,
+            'ai_messages': ai_count,
+            'recent_context': recent_context,
+            'conversation_length': sum(len(msg.content) for msg in messages)
+        }
+    
+    def add_response_message(self, content: str, result: TaskResult) -> AIMessage:
+        """Convert task result to AIMessage"""
+        return AIMessage(
+            content=content,
+            additional_kwargs={
+                'task_id': self.id,
+                'task_name': self.name,
+                'success': result.success,
+                'execution_time': result.execution_time,
+                'agent_name': result.agent_name,
+                'timestamp': time.time()
+            }
+        )
+    
+    def create_message_from_result(self, result: TaskResult) -> AIMessage:
+        """Create AIMessage from TaskResult"""
+        if result.success:
+            content = str(result.result) if result.result else f"Task '{self.name}' completed successfully"
+        else:
+            content = f"Task '{self.name}' failed: {result.error}"
+        
+        return self.add_response_message(content, result)
+    
+    def get_message_context(self, context: Dict[str, Any]) -> List[BaseMessage]:
+        """Extract message context from execution context"""
+        return context.get('messages', [])
+    
+    def update_context_with_messages(self, 
+                                   context: Dict[str, Any], 
+                                   messages: List[BaseMessage]) -> Dict[str, Any]:
+        """Update execution context with messages"""
+        enhanced_context = context.copy()
+        enhanced_context['messages'] = messages
+        
+        # Add conversation summary
+        if messages:
+            enhanced_context['conversation_summary'] = self._summarize_messages(messages)
+        
+        return enhanced_context
+    
+    def _summarize_messages(self, messages: List[BaseMessage]) -> str:
+        """Create a summary of the conversation messages"""
+        if not messages:
+            return ""
+        
+        summary_parts = []
+        for i, msg in enumerate(messages[-5:]):  # Last 5 messages
+            msg_type = "Human" if isinstance(msg, HumanMessage) else "AI"
+            content_preview = msg.content[:100] + "..." if len(msg.content) > 100 else msg.content
+            summary_parts.append(f"{msg_type}: {content_preview}")
+        
+        return " | ".join(summary_parts)
+    
+    # ============= END MESSAGE HANDLING METHODS =============
     
     def _execute_crew_task(self, context: Dict[str, Any]) -> Any:
         """Execute using original CrewAI Task."""

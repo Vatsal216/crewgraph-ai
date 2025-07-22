@@ -8,22 +8,38 @@ Created: 2025-07-22 12:01:02 UTC
 
 from .base import BaseMemory, MemoryOperation
 from .dict_memory import DictMemory
-from .redis_memory import RedisMemory
-from .faiss_memory import FAISSMemory
-from .sql_memory import SQLMemory
 from .config import MemoryConfig, MemoryType
 from .utils import MemoryUtils, MemorySerializer
+
+# Optional imports (gracefully handle missing dependencies)
+try:
+    from .redis_memory import RedisMemory
+    REDIS_AVAILABLE = True
+except ImportError:
+    RedisMemory = None
+    REDIS_AVAILABLE = False
+
+try:
+    from .faiss_memory import FAISSMemory
+    FAISS_AVAILABLE = True
+except ImportError:
+    FAISSMemory = None
+    FAISS_AVAILABLE = False
+
+try:
+    from .sql_memory import SQLMemory
+    SQL_AVAILABLE = True
+except ImportError:
+    SQLMemory = None
+    SQL_AVAILABLE = False
 
 __all__ = [
     # Base classes
     "BaseMemory",
     "MemoryOperation",
     
-    # Memory backends
+    # Memory backends (always available)
     "DictMemory",
-    "RedisMemory", 
-    "FAISSMemory",
-    "SQLMemory",
     
     # Configuration
     "MemoryConfig",
@@ -33,6 +49,14 @@ __all__ = [
     "MemoryUtils",
     "MemorySerializer",
 ]
+
+# Add optional backends to __all__ if available
+if REDIS_AVAILABLE:
+    __all__.append("RedisMemory")
+if FAISS_AVAILABLE:
+    __all__.append("FAISSMemory")
+if SQL_AVAILABLE:
+    __all__.append("SQLMemory")
 
 # Version info
 __version__ = "1.0.0"

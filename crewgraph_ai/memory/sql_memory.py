@@ -25,8 +25,13 @@ try:
     from sqlalchemy.pool import QueuePool
     from sqlalchemy.exc import SQLAlchemyError
     SQLALCHEMY_AVAILABLE = True
+    # SQLAlchemy Base
+    Base = declarative_base()
 except ImportError:
     SQLALCHEMY_AVAILABLE = False
+    # Create dummy base for when SQLAlchemy is not available
+    class Base:
+        pass
 
 from .base import BaseMemory, MemoryOperation
 from ..utils.logging import get_logger
@@ -34,31 +39,33 @@ from ..utils.exceptions import MemoryError
 
 logger = get_logger(__name__)
 
-# SQLAlchemy Base
-Base = declarative_base()
-
-
-class MemoryItem(Base):
-    """SQLAlchemy model for memory items"""
-    __tablename__ = 'crewgraph_memory'
-    
-    key = Column(String(255), primary_key=True)
-    value_data = Column(LargeBinary)  # Pickled/compressed data
-    value_type = Column(String(50))   # Type information
-    metadata_json = Column(Text)      # JSON metadata
-    created_at = Column(DateTime, default=datetime.utcnow)
-    expires_at = Column(DateTime, nullable=True)
-    access_count = Column(Integer, default=0)
-    last_access = Column(DateTime, nullable=True)
-    size_bytes = Column(Integer, default=0)
-    is_compressed = Column(Boolean, default=False)
-    
-    # Indexes for performance
-    __table_args__ = (
-        Index('idx_expires_at', 'expires_at'),
-        Index('idx_created_at', 'created_at'),
-        Index('idx_last_access', 'last_access'),
-    )
+# Define SQLAlchemy models only if SQLAlchemy is available
+if SQLALCHEMY_AVAILABLE:
+    class MemoryItem(Base):
+        """SQLAlchemy model for memory items"""
+        __tablename__ = 'crewgraph_memory'
+        
+        key = Column(String(255), primary_key=True)
+        value_data = Column(LargeBinary)  # Pickled/compressed data
+        value_type = Column(String(50))   # Type information
+        metadata_json = Column(Text)      # JSON metadata
+        created_at = Column(DateTime, default=datetime.utcnow)
+        expires_at = Column(DateTime, nullable=True)
+        access_count = Column(Integer, default=0)
+        last_access = Column(DateTime, nullable=True)
+        size_bytes = Column(Integer, default=0)
+        is_compressed = Column(Boolean, default=False)
+        
+        # Indexes for performance
+        __table_args__ = (
+            Index('idx_expires_at', 'expires_at'),
+            Index('idx_created_at', 'created_at'),
+            Index('idx_last_access', 'last_access'),
+        )
+else:
+    # Dummy class when SQLAlchemy is not available
+    class MemoryItem:
+        pass
 
 
 class SQLMemory(BaseMemory):
