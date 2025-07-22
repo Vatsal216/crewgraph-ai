@@ -5,7 +5,7 @@ Production-ready graph orchestrator with full LangGraph integration
 import asyncio
 import uuid
 import time
-from typing import Dict, List, Optional, Any, Callable, Union, Tuple
+from typing import Dict, List, Optional, Any, Callable, Union, Tuple, Set, Type
 from dataclasses import dataclass, field
 from enum import Enum
 import threading
@@ -21,6 +21,13 @@ from typing_extensions import TypedDict
 
 from .tasks import TaskWrapper, TaskChain, TaskResult, TaskStatus
 from .state import SharedState
+from ..types import (
+    StateDict, NodeId, WorkflowId, ExecutionId, WorkflowStatus, NodeStatus,
+    WorkflowData, ExecutionEvent, PerformanceMetrics, ExecutionResult,
+    BeforeExecutionCallback, AfterExecutionCallback, ErrorCallback,
+    AsyncBeforeExecutionCallback, AsyncAfterExecutionCallback, AsyncErrorCallback,
+    VisualizationFormat
+)
 from ..utils.logging import get_logger
 from ..utils.exceptions import CrewGraphError, ValidationError, ExecutionError
 
@@ -50,11 +57,11 @@ class WorkflowStatus(Enum):
 
 @dataclass
 class WorkflowResult:
-    """Workflow execution result"""
-    workflow_id: str
+    """Workflow execution result with complete type annotations."""
+    workflow_id: WorkflowId
     workflow_name: str
     success: bool
-    results: Dict[str, Any] = field(default_factory=dict)
+    results: StateDict = field(default_factory=dict)
     error: Optional[str] = None
     execution_time: float = 0.0
     tasks_completed: int = 0
@@ -80,7 +87,7 @@ class GraphOrchestrator:
                  name: str = "default_workflow",
                  max_concurrent_nodes: int = 5,
                  enable_checkpoints: bool = True,
-                 checkpoint_interval: int = 5):
+                 checkpoint_interval: int = 5) -> None:
         """
         Initialize graph orchestrator.
         
@@ -90,11 +97,11 @@ class GraphOrchestrator:
             enable_checkpoints: Enable workflow checkpointing
             checkpoint_interval: Checkpoint save interval (seconds)
         """
-        self.name = name
-        self.id = str(uuid.uuid4())
-        self.max_concurrent_nodes = max_concurrent_nodes
-        self.enable_checkpoints = enable_checkpoints
-        self.checkpoint_interval = checkpoint_interval
+        self.name: str = name
+        self.id: WorkflowId = str(uuid.uuid4())
+        self.max_concurrent_nodes: int = max_concurrent_nodes
+        self.enable_checkpoints: bool = enable_checkpoints
+        self.checkpoint_interval: int = checkpoint_interval
         
         # LangGraph integration
         self._state_graph: Optional[StateGraph] = None
@@ -105,13 +112,44 @@ class GraphOrchestrator:
         self._workflow_mode: str = "state"  # "state" or "message"
         
         # Workflow components
-        self._nodes: Dict[str, Callable] = {}
-        self._edges: List[Tuple[str, str]] = []
+        self._nodes: Dict[NodeId, Callable[..., Any]] = {}
+        self._edges: List[Tuple[NodeId, NodeId]] = []
         self._conditional_edges: List[Dict[str, Any]] = []
-        self._node_metadata: Dict[str, Dict[str, Any]] = {}
+        self._node_metadata: Dict[NodeId, Dict[str, Any]] = {}
         
         # Execution tracking
-        self.status = WorkflowStatus.PENDING
+        self.status: WorkflowStatus = WorkflowStatus.PENDING
+        self.shared_state: Optional[SharedState] = None
+        self.start_time: Optional[float] = None
+        self.end_time: Optional[float] = None
+        self._execution_history: List[ExecutionEvent] = []
+        self._node_status: Dict[NodeId, NodeStatus] = {}
+        
+        # Callbacks
+        self._before_execution_callbacks: List[BeforeExecutionCallback] = []
+        self._after_execution_callbacks: List[AfterExecutionCallback] = []
+        self._error_callbacks: List[ErrorCallback] = []
+        
+        # Async callbacks
+        self._async_before_execution_callbacks: List[AsyncBeforeExecutionCallback] = []
+        self._async_after_execution_callbacks: List[AsyncAfterExecutionCallback] = []
+        self._async_error_callbacks: List[AsyncErrorCallback] = []
+        
+        # Performance tracking
+        self._performance_metrics: PerformanceMetrics = {}
+        self._node_execution_times: Dict[NodeId, List[float]] = {}
+        
+        # Threading for parallel execution
+        self._executor: Optional[ThreadPoolExecutor] = None
+        self._active_executions: Set[NodeId] = set()
+        self._execution_lock = threading.Lock()
+        
+        # Graph state
+        self.is_built: bool = False
+        self._entry_point: Optional[NodeId] = None
+        self._finish_points: Set[NodeId] = set()
+        
+        logger.info(f"GraphOrchestrator '{name}' initialized with ID: {self.id}")
         self.is_built = False
         self.start_time: Optional[float] = None
         self.end_time: Optional[float] = None
@@ -170,7 +208,7 @@ class GraphOrchestrator:
         """
         return self._compiled_message_graph
     
-    def create_state_graph(self, state_schema: Optional[Any] = None) -> StateGraph:
+    def create_state_graph(self, state_schema: Optional[Type[TypedDict]] = None) -> StateGraph:
         """
         Create a new LangGraph StateGraph with full feature access.
         
@@ -1317,7 +1355,9 @@ class WorkflowBuilder:
     
     # ============= VISUALIZATION METHODS =============
     
-    def visualize_workflow(self, output_path: Optional[str] = None, format: str = "html") -> str:
+    def visualize_workflow(self, 
+                          output_path: Optional[str] = None, 
+                          format: VisualizationFormat = "html") -> str:
         """
         Generate visual representation of workflow graph.
         
@@ -1360,7 +1400,7 @@ class WorkflowBuilder:
             logger.error(f"Failed to visualize workflow: {e}")
             raise CrewGraphError(f"Workflow visualization failed: {e}")
     
-    def export_execution_trace(self, include_memory: bool = True) -> Dict[str, Any]:
+    def export_execution_trace(self, include_memory: bool = True) -> StateDict:
         """
         Export detailed execution trace for debugging.
         
@@ -1403,7 +1443,7 @@ class WorkflowBuilder:
             logger.error(f"Failed to export execution trace: {e}")
             raise CrewGraphError(f"Execution trace export failed: {e}")
     
-    def dump_memory_state(self, backend_details: bool = False) -> Dict[str, Any]:
+    def dump_memory_state(self, backend_details: bool = False) -> StateDict:
         """
         Dump current memory state for inspection.
         
@@ -1444,7 +1484,7 @@ class WorkflowBuilder:
             logger.error(f"Failed to dump memory state: {e}")
             raise CrewGraphError(f"Memory state dump failed: {e}")
     
-    def generate_debug_report(self) -> Dict[str, Any]:
+    def generate_debug_report(self) -> StateDict:
         """
         Generate comprehensive debug report.
         
@@ -1497,7 +1537,7 @@ class WorkflowBuilder:
     
     # ============= VISUALIZATION HELPER METHODS =============
     
-    def _extract_workflow_data(self) -> Dict[str, Any]:
+    def _extract_workflow_data(self) -> WorkflowData:
         """Extract workflow data for visualization."""
         nodes = []
         edges = []
@@ -1551,7 +1591,7 @@ class WorkflowBuilder:
             }
         }
     
-    def _get_node_status(self, node_id: str) -> str:
+    def _get_node_status(self, node_id: NodeId) -> NodeStatus:
         """Get the current status of a node."""
         # This would check the node's execution status
         # Implementation depends on how node status is tracked
@@ -1559,7 +1599,7 @@ class WorkflowBuilder:
             return self._node_status.get(node_id, "pending")
         return "pending"
     
-    def _collect_execution_events(self) -> List[Dict[str, Any]]:
+    def _collect_execution_events(self) -> List[ExecutionEvent]:
         """Collect execution events for trace export."""
         events = []
         
@@ -1581,7 +1621,7 @@ class WorkflowBuilder:
         
         return events
     
-    def _calculate_node_statistics(self) -> Dict[str, Any]:
+    def _calculate_node_statistics(self) -> Dict[NodeId, Dict[str, Any]]:
         """Calculate statistics for each node."""
         stats = {}
         
@@ -1620,7 +1660,7 @@ class WorkflowBuilder:
         
         return stats
     
-    def _gather_performance_metrics(self) -> Dict[str, Any]:
+    def _gather_performance_metrics(self) -> PerformanceMetrics:
         """Gather performance metrics."""
         metrics = {
             "workflow_start_time": getattr(self, 'start_time', None),

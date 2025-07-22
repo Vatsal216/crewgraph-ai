@@ -35,19 +35,104 @@ class CrewGraph:
     """
     Main interface for CrewGraph AI library.
     
-    Provides a high-level API for creating and managing agent workflows
-    that combine CrewAI agents with LangGraph orchestration.
+    This class provides a high-level API for creating and managing agent workflows
+    that combine CrewAI agents with LangGraph orchestration. It handles the complete
+    lifecycle of workflow definition, execution, and monitoring.
+    
+    The CrewGraph class serves as the primary entry point for users who want to:
+    - Define multi-agent workflows with dependencies
+    - Execute workflows with state management
+    - Monitor execution progress and performance
+    - Visualize workflow structure and execution flow
+    
+    Attributes:
+        name: The workflow name for identification and logging
+        config: Configuration object containing workflow settings
+        
+    Example:
+        Basic workflow creation and execution:
+        
+        ```python
+        from crewgraph_ai import CrewGraph, CrewGraphConfig
+        
+        # Create workflow with custom configuration
+        config = CrewGraphConfig(
+            enable_planning=True,
+            max_concurrent_tasks=5,
+            task_timeout=300.0
+        )
+        workflow = CrewGraph("data_processing", config)
+        
+        # Add agents and tasks
+        workflow.add_agent(data_collector_agent, "collector")
+        workflow.add_agent(data_analyzer_agent, "analyzer")
+        
+        workflow.add_task("collect_data", "Collect data from sources", 
+                         agent="collector")
+        workflow.add_task("analyze_data", "Analyze collected data", 
+                         agent="analyzer", dependencies=["collect_data"])
+        
+        # Execute workflow
+        result = workflow.execute({"source_url": "https://api.example.com"})
+        print(f"Workflow completed: {result}")
+        ```
+        
+        Advanced workflow with custom tools:
+        
+        ```python
+        # Add custom tools
+        def custom_processor(data):
+            return {"processed": data}
+            
+        workflow.add_tool("processor", custom_processor, 
+                         "Process data with custom logic")
+        
+        # Create task chains for sequential execution
+        chain = workflow.create_chain("collect_data", "analyze_data", "report")
+        
+        # Execute with async mode
+        result = workflow.execute(async_mode=True)
+        ```
     """
     
     def __init__(self, 
                  name: str = "default_workflow",
-                 config: Optional[CrewGraphConfig] = None):
+                 config: Optional[CrewGraphConfig] = None) -> None:
         """
         Initialize CrewGraph instance.
         
+        Sets up the core components needed for workflow execution including
+        state management, agent pool, tool registry, and orchestrator.
+        
         Args:
-            name: Workflow name
-            config: Configuration options
+            name: Unique name for the workflow. Used for logging, monitoring,
+                and identification. Should be descriptive and unique across
+                your application.
+            config: Configuration object specifying workflow behavior. If None,
+                uses default configuration with dictionary memory backend and
+                basic settings.
+                
+        Raises:
+            CrewGraphError: If initialization fails due to invalid configuration
+                or missing dependencies.
+                
+        Example:
+            ```python
+            # Basic initialization
+            workflow = CrewGraph("my_workflow")
+            
+            # With custom configuration
+            from crewgraph_ai.memory import RedisMemory
+            
+            config = CrewGraphConfig(
+                memory_backend=RedisMemory(host="localhost"),
+                enable_planning=True,
+                max_concurrent_tasks=10,
+                enable_logging=True,
+                log_level="DEBUG"
+            )
+            workflow = CrewGraph("advanced_workflow", config)
+            ```
         """
         self.name = name
         self.config = config or CrewGraphConfig()
@@ -72,12 +157,57 @@ class CrewGraph:
         """
         Add an agent to the workflow.
         
+        Registers an agent for use in workflow tasks. The agent can be either
+        a pre-wrapped AgentWrapper instance or a raw CrewAI agent that will
+        be automatically wrapped.
+        
         Args:
-            agent: AgentWrapper instance or CrewAI agent
-            name: Agent name (optional if AgentWrapper)
-            
+            agent: Agent to add to the workflow. Can be:
+                - AgentWrapper: Pre-configured wrapper with state access
+                - CrewAI Agent: Raw agent that will be wrapped automatically
+                - Any object with execute() method: Custom agent implementation
+            name: Optional name for the agent. Required if agent is not an
+                AgentWrapper. Must be unique within the workflow.
+                
         Returns:
-            AgentWrapper instance
+            AgentWrapper instance that can be used for task assignment and
+            execution. The wrapper provides state access and monitoring.
+            
+        Raises:
+            ValidationError: If name is required but not provided, or if an
+                agent with the same name already exists.
+            CrewGraphError: If agent initialization fails.
+            
+        Example:
+            ```python
+            from crewai import Agent
+            
+            # Add raw CrewAI agent
+            crew_agent = Agent(
+                role="Data Analyst",
+                goal="Analyze data patterns",
+                backstory="Expert in statistical analysis"
+            )
+            wrapper = workflow.add_agent(crew_agent, "analyst")
+            
+            # Add pre-wrapped agent
+            from crewgraph_ai import AgentWrapper
+            
+            wrapped_agent = AgentWrapper(
+                name="researcher", 
+                crew_agent=research_agent,
+                state=shared_state
+            )
+            workflow.add_agent(wrapped_agent)
+            
+            # Verify agent was added
+            print(f"Added agent: {wrapper.name}")
+            print(f"Total agents: {len(workflow.list_agents())}")
+            ```
+            
+        Note:
+            Once added, agents can be assigned to tasks and will have access
+            to the shared workflow state for data exchange between tasks.
         """
         if isinstance(agent, AgentWrapper):
             wrapper = agent
@@ -101,15 +231,74 @@ class CrewGraph:
         """
         Add a task to the workflow.
         
+        Creates and registers a new task within the workflow. Tasks represent
+        discrete units of work that can be executed by agents with optional
+        tool access and dependency relationships.
+        
         Args:
-            name: Task name
-            description: Task description
-            agent: Agent name to assign task to
-            tools: List of tool names to make available
-            dependencies: List of task names this depends on
-            
+            name: Unique identifier for the task within the workflow. Used for
+                dependency references and execution tracking. Must not conflict
+                with existing task names.
+            description: Human-readable description of what the task should
+                accomplish. Used by agents to understand task requirements and
+                by the planning system for optimization. Should be detailed
+                enough for agent execution.
+            agent: Optional name of the agent to assign this task to. Must
+                correspond to an agent previously added with add_agent(). If
+                None, task can be assigned later or executed without a specific
+                agent.
+            tools: Optional list of tool names to make available during task
+                execution. Tools must be previously registered in the tool
+                registry. Agents can access these tools during task execution.
+            dependencies: Optional list of task names that must complete before
+                this task can execute. Creates execution order constraints and
+                enables data flow between tasks. All dependency tasks must
+                exist in the workflow.
+                
         Returns:
-            TaskWrapper instance
+            TaskWrapper instance that encapsulates the task configuration and
+            provides execution interface. Can be used for further configuration
+            or direct execution.
+            
+        Raises:
+            ValidationError: If task name already exists, if specified agent
+                doesn't exist, or if dependency tasks don't exist.
+            CrewGraphError: If task initialization fails.
+            
+        Example:
+            ```python
+            # Basic task creation
+            task1 = workflow.add_task(
+                name="data_collection",
+                description="Collect data from external APIs",
+                agent="collector"
+            )
+            
+            # Task with tools and dependencies
+            task2 = workflow.add_task(
+                name="data_analysis", 
+                description="Analyze collected data for patterns",
+                agent="analyzer",
+                tools=["pandas_processor", "statistical_analyzer"],
+                dependencies=["data_collection"]
+            )
+            
+            # Complex task with multiple dependencies
+            workflow.add_task(
+                name="generate_report",
+                description="Generate comprehensive analysis report",
+                agent="reporter", 
+                tools=["report_generator", "chart_creator"],
+                dependencies=["data_collection", "data_analysis"]
+            )
+            
+            print(f"Added {len(workflow.list_tasks())} tasks to workflow")
+            ```
+            
+        Note:
+            Tasks with dependencies will automatically wait for their
+            dependencies to complete before execution. The workflow engine
+            handles proper sequencing and data flow between tasks.
         """
         task = TaskWrapper(
             name=name,

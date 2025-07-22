@@ -3,6 +3,49 @@ CrewGraph AI - Production-ready library combining CrewAI and LangGraph
 
 This library provides advanced agent orchestration capabilities by combining
 the power of CrewAI for agent definition and LangGraph for workflow orchestration.
+
+Key Features:
+    - Advanced agent orchestration with CrewAI integration
+    - Powerful workflow management using LangGraph
+    - Production-ready memory backends (Dict, Redis, FAISS, SQL)
+    - Comprehensive visualization and debugging tools
+    - Real-time execution monitoring and performance analytics
+    - Type-safe APIs with complete type annotations
+    - Scalable and fault-tolerant execution
+
+Basic Usage:
+    ```python
+    from crewgraph_ai import CrewGraph
+    
+    # Create a workflow
+    workflow = CrewGraph("my_workflow")
+    
+    # Add agents and tasks
+    workflow.add_agent(my_agent, "data_analyst")
+    workflow.add_task("analyze_data", "Analyze the provided dataset")
+    
+    # Execute workflow
+    result = workflow.execute({"data": my_data})
+    ```
+
+Advanced Usage:
+    ```python
+    from crewgraph_ai import GraphOrchestrator, WorkflowVisualizer
+    
+    # Create orchestrator with visualization
+    orchestrator = GraphOrchestrator("advanced_workflow")
+    
+    # Build workflow with LangGraph
+    orchestrator.create_state_graph()
+    orchestrator.add_node("task1", my_function)
+    orchestrator.add_edge("task1", "task2")
+    
+    # Visualize workflow
+    viz_path = orchestrator.visualize_workflow(format="html")
+    print(f"Workflow visualization: {viz_path}")
+    ```
+
+For more information, visit: https://github.com/Vatsal216/crewgraph-ai
 """
 
 __version__ = "1.0.0"
@@ -43,6 +86,14 @@ from .planning.strategies import PlanningStrategy
 # Utility imports
 from .utils.exceptions import CrewGraphError, ValidationError, ExecutionError
 from .utils.logging import setup_logging, get_logger
+
+# Type definitions
+from .types import (
+    StateDict, TaskResult, AgentResponse, ToolFunction, 
+    NodeId, WorkflowId, TaskStatus, WorkflowStatus, NodeStatus,
+    AgentProtocol, MemoryProtocol, ToolProtocol, StateProtocol,
+    ExecutionResult, CrewGraphConfig, VisualizationConfig
+)
 
 # Main orchestration class for easy usage
 from .crewgraph import CrewGraph
@@ -93,6 +144,12 @@ __all__ = [
     "get_metrics_collector",
     "MetricsCollector", 
     "PerformanceMonitor",
+    
+    # Type definitions
+    "StateDict", "TaskResult", "AgentResponse", "ToolFunction",
+    "NodeId", "WorkflowId", "TaskStatus", "WorkflowStatus", "NodeStatus",
+    "AgentProtocol", "MemoryProtocol", "ToolProtocol", "StateProtocol",
+    "ExecutionResult", "CrewGraphConfig", "VisualizationConfig",
 ]
 
 # Add optional memory backends to __all__ if available
