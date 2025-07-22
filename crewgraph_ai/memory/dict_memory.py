@@ -1,281 +1,355 @@
 """
-In-memory dictionary-based memory implementation
+Base Memory Interface for CrewGraph AI
+Defines the contract for all memory backends
+
+Author: Vatsal216
+Created: 2025-07-22 12:01:02 UTC
 """
 
-import threading
 import time
-from typing import Any, Dict, List, Optional
-from dataclasses import dataclass, field
+import threading
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional, Union, Tuple
+from enum import Enum
+from dataclasses import dataclass
 
-from .base import BaseMemory, MemoryConfig
 from ..utils.logging import get_logger
+from ..utils.exceptions import MemoryError
+from ..utils.metrics import get_metrics_collector
 
 logger = get_logger(__name__)
+metrics = get_metrics_collector()
+
+
+class MemoryOperation(Enum):
+    """Memory operation types for tracking"""
+    SAVE = "save"
+    LOAD = "load"
+    DELETE = "delete"
+    EXISTS = "exists"
+    CLEAR = "clear"
+    LIST_KEYS = "list_keys"
+    GET_SIZE = "get_size"
+    SEARCH = "search"
 
 
 @dataclass
-class MemoryEntry:
-    """Memory entry with metadata"""
-    value: bytes
-    created_at: float
-    expires_at: Optional[float] = None
-    access_count: int = 0
-    last_accessed: float = field(default_factory=time.time)
+class MemoryStats:
+    """Memory backend statistics"""
+    total_operations: int = 0
+    successful_operations: int = 0
+    failed_operations: int = 0
+    total_keys: int = 0
+    total_size_bytes: int = 0
+    average_operation_time: float = 0.0
+    last_operation_time: float = 0.0
+    backend_type: str = ""
+    created_at: str = "2025-07-22 12:01:02"
+    created_by: str = "Vatsal216"
 
 
-class DictMemory(BaseMemory):
+class BaseMemory(ABC):
     """
-    High-performance in-memory dictionary storage with TTL and LRU eviction.
+    Abstract base class for all memory backends in CrewGraph AI.
     
-    Features:
-    - Thread-safe operations
-    - TTL (Time To Live) support
-    - LRU (Least Recently Used) eviction
-    - Memory usage monitoring
-    - Access statistics
+    This class defines the standard interface that all memory backends
+    must implement, ensuring consistency across different storage systems.
+    
+    Created by: Vatsal216
+    Date: 2025-07-22 12:01:02 UTC
     """
     
-    def __init__(self, config: Optional[MemoryConfig] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
-        Initialize dictionary memory.
+        Initialize base memory backend.
         
         Args:
-            config: Memory configuration
+            config: Backend-specific configuration
         """
-        super().__init__(config)
-        self._data: Dict[str, MemoryEntry] = {}
+        self.config = config or {}
+        self.stats = MemoryStats(backend_type=self.__class__.__name__)
         self._lock = threading.RLock()
-        self._access_order: List[str] = []  # For LRU tracking
-        self._cleanup_interval = 60  # Cleanup every 60 seconds
-        self._last_cleanup = time.time()
+        self._connected = False
         
-        logger.info("DictMemory initialized")
+        logger.info(f"Initializing {self.__class__.__name__} memory backend")
+        logger.info(f"User: Vatsal216, Time: 2025-07-22 12:01:02")
     
-    def connect(self) -> None:
-        """Connect to memory backend."""
-        self._is_connected = True
-        logger.debug("DictMemory connected")
-    
-    def disconnect(self) -> None:
-        """Disconnect from memory backend."""
+    def _record_operation(self, operation: MemoryOperation, success: bool, duration: float):
+        """Record operation metrics and statistics"""
         with self._lock:
-            self._data.clear()
-            self._access_order.clear()
+            self.stats.total_operations += 1
+            self.stats.last_operation_time = time.time()
+            
+            if success:
+                self.stats.successful_operations += 1
+            else:
+                self.stats.failed_operations += 1
+            
+            # Update average operation time
+            if self.stats.total_operations > 0:
+                total_time = self.stats.average_operation_time * (self.stats.total_operations - 1)
+                self.stats.average_operation_time = (total_time + duration) / self.stats.total_operations
         
-        self._is_connected = False
-        logger.debug("DictMemory disconnected")
+        # Record global metrics
+        metrics.record_duration(
+            f"memory_operation_{operation.value}_duration_seconds",
+            duration,
+            labels={
+                "backend": self.__class__.__name__,
+                "success": str(success),
+                "user": "Vatsal216"
+            }
+        )
+        
+        metrics.increment_counter(
+            f"memory_operations_total",
+            labels={
+                "backend": self.__class__.__name__,
+                "operation": operation.value,
+                "success": str(success),
+                "user": "Vatsal216"
+            }
+        )
     
-    def _get(self, key: str) -> Optional[bytes]:
-        """Get raw value from backend."""
-        with self._lock:
-            self._cleanup_expired()
-            
-            entry = self._data.get(key)
-            if entry is None:
-                return None
-            
-            # Check if expired
-            current_time = time.time()
-            if entry.expires_at and current_time > entry.expires_at:
-                del self._data[key]
-                if key in self._access_order:
-                    self._access_order.remove(key)
-                return None
-            
-            # Update access statistics
-            entry.access_count += 1
-            entry.last_accessed = current_time
-            
-            # Update LRU order
-            if key in self._access_order:
-                self._access_order.remove(key)
-            self._access_order.append(key)
-            
-            return entry.value
-    
-    def _set(self, key: str, value: bytes, ttl: Optional[int] = None) -> None:
-        """Set raw value in backend."""
-        with self._lock:
-            current_time = time.time()
-            
-            # Calculate expiration time
-            expires_at = None
-            if ttl:
-                expires_at = current_time + ttl
-            
-            # Create entry
-            entry = MemoryEntry(
-                value=value,
-                created_at=current_time,
-                expires_at=expires_at
+    def _execute_with_metrics(self, operation: MemoryOperation, func, *args, **kwargs):
+        """Execute operation with automatic metrics recording"""
+        start_time = time.time()
+        success = False
+        
+        try:
+            result = func(*args, **kwargs)
+            success = True
+            return result
+        except Exception as e:
+            logger.error(f"Memory operation {operation.value} failed: {e}")
+            raise MemoryError(
+                f"Memory operation failed: {operation.value}",
+                operation=operation.value,
+                backend=self.__class__.__name__,
+                original_error=e
             )
-            
-            # Check if we need to evict entries (LRU)
-            if self.config.max_size and len(self._data) >= self.config.max_size:
-                self._evict_lru()
-            
-            # Store entry
-            self._data[key] = entry
-            
-            # Update access order
-            if key in self._access_order:
-                self._access_order.remove(key)
-            self._access_order.append(key)
-            
-            self._cleanup_expired()
+        finally:
+            duration = time.time() - start_time
+            self._record_operation(operation, success, duration)
     
-    def _delete(self, key: str) -> bool:
-        """Delete key from backend."""
+    @abstractmethod
+    def connect(self) -> None:
+        """Establish connection to the memory backend"""
+        pass
+    
+    @abstractmethod
+    def disconnect(self) -> None:
+        """Close connection to the memory backend"""
+        pass
+    
+    @abstractmethod
+    def save(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        """
+        Save value to memory with optional TTL.
+        
+        Args:
+            key: Storage key
+            value: Value to store
+            ttl: Time to live in seconds
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        pass
+    
+    @abstractmethod
+    def load(self, key: str) -> Any:
+        """
+        Load value from memory.
+        
+        Args:
+            key: Storage key
+            
+        Returns:
+            Stored value or None if not found
+        """
+        pass
+    
+    @abstractmethod
+    def delete(self, key: str) -> bool:
+        """
+        Delete value from memory.
+        
+        Args:
+            key: Storage key
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        pass
+    
+    @abstractmethod
+    def exists(self, key: str) -> bool:
+        """
+        Check if key exists in memory.
+        
+        Args:
+            key: Storage key
+            
+        Returns:
+            True if key exists, False otherwise
+        """
+        pass
+    
+    @abstractmethod
+    def clear(self) -> bool:
+        """
+        Clear all data from memory.
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        pass
+    
+    @abstractmethod
+    def list_keys(self, pattern: Optional[str] = None) -> List[str]:
+        """
+        List all keys in memory, optionally filtered by pattern.
+        
+        Args:
+            pattern: Optional pattern to filter keys
+            
+        Returns:
+            List of keys
+        """
+        pass
+    
+    @abstractmethod
+    def get_size(self) -> int:
+        """
+        Get total size of stored data in bytes.
+        
+        Returns:
+            Size in bytes
+        """
+        pass
+    
+    def batch_save(self, data: Dict[str, Any], ttl: Optional[int] = None) -> Dict[str, bool]:
+        """
+        Save multiple key-value pairs in batch.
+        
+        Args:
+            data: Dictionary of key-value pairs
+            ttl: Time to live in seconds
+            
+        Returns:
+            Dictionary of key -> success status
+        """
+        def _batch_save():
+            results = {}
+            for key, value in data.items():
+                try:
+                    results[key] = self.save(key, value, ttl)
+                except Exception as e:
+                    logger.error(f"Batch save failed for key '{key}': {e}")
+                    results[key] = False
+            return results
+        
+        return self._execute_with_metrics(MemoryOperation.SAVE, _batch_save)
+    
+    def batch_load(self, keys: List[str]) -> Dict[str, Any]:
+        """
+        Load multiple values in batch.
+        
+        Args:
+            keys: List of keys to load
+            
+        Returns:
+            Dictionary of key -> value (None for missing keys)
+        """
+        def _batch_load():
+            results = {}
+            for key in keys:
+                try:
+                    results[key] = self.load(key)
+                except Exception as e:
+                    logger.error(f"Batch load failed for key '{key}': {e}")
+                    results[key] = None
+            return results
+        
+        return self._execute_with_metrics(MemoryOperation.LOAD, _batch_load)
+    
+    def batch_delete(self, keys: List[str]) -> Dict[str, bool]:
+        """
+        Delete multiple keys in batch.
+        
+        Args:
+            keys: List of keys to delete
+            
+        Returns:
+            Dictionary of key -> success status
+        """
+        def _batch_delete():
+            results = {}
+            for key in keys:
+                try:
+                    results[key] = self.delete(key)
+                except Exception as e:
+                    logger.error(f"Batch delete failed for key '{key}': {e}")
+                    results[key] = False
+            return results
+        
+        return self._execute_with_metrics(MemoryOperation.DELETE, _batch_delete)
+    
+    def get_stats(self) -> MemoryStats:
+        """Get memory backend statistics"""
         with self._lock:
-            if key in self._data:
-                del self._data[key]
-                if key in self._access_order:
-                    self._access_order.remove(key)
-                return True
-            return False
+            # Update current stats
+            self.stats.total_keys = len(self.list_keys())
+            self.stats.total_size_bytes = self.get_size()
+            return self.stats
     
-    def _exists(self, key: str) -> bool:
-        """Check if key exists in backend."""
-        with self._lock:
-            self._cleanup_expired()
+    def get_health(self) -> Dict[str, Any]:
+        """Get memory backend health status"""
+        try:
+            # Test basic operations
+            test_key = f"health_check_{int(time.time())}"
+            test_value = "health_check_value"
             
-            if key not in self._data:
-                return False
+            # Test save/load/delete
+            save_success = self.save(test_key, test_value, ttl=60)
+            load_success = self.load(test_key) == test_value
+            delete_success = self.delete(test_key)
             
-            entry = self._data[key]
-            current_time = time.time()
-            
-            # Check if expired
-            if entry.expires_at and current_time > entry.expires_at:
-                del self._data[key]
-                if key in self._access_order:
-                    self._access_order.remove(key)
-                return False
-            
-            return True
-    
-    def _keys(self, pattern: str = "*") -> List[str]:
-        """Get keys matching pattern."""
-        import fnmatch
-        
-        with self._lock:
-            self._cleanup_expired()
-            
-            if pattern == "*":
-                return list(self._data.keys())
-            
-            return [key for key in self._data.keys() if fnmatch.fnmatch(key, pattern)]
-    
-    def _clear(self) -> None:
-        """Clear all data from backend."""
-        with self._lock:
-            self._data.clear()
-            self._access_order.clear()
-    
-    def _cleanup_expired(self) -> None:
-        """Remove expired entries."""
-        current_time = time.time()
-        
-        # Only cleanup if interval has passed
-        if current_time - self._last_cleanup < self._cleanup_interval:
-            return
-        
-        expired_keys = []
-        for key, entry in self._data.items():
-            if entry.expires_at and current_time > entry.expires_at:
-                expired_keys.append(key)
-        
-        for key in expired_keys:
-            del self._data[key]
-            if key in self._access_order:
-                self._access_order.remove(key)
-        
-        if expired_keys:
-            logger.debug(f"Cleaned up {len(expired_keys)} expired entries")
-        
-        self._last_cleanup = current_time
-    
-    def _evict_lru(self) -> None:
-        """Evict least recently used entries."""
-        if not self._access_order:
-            return
-        
-        # Remove oldest accessed key
-        oldest_key = self._access_order[0]
-        del self._data[oldest_key]
-        self._access_order.remove(oldest_key)
-        
-        logger.debug(f"Evicted LRU entry: {oldest_key}")
-    
-    def get_memory_usage(self) -> Dict[str, Any]:
-        """Get detailed memory usage statistics."""
-        with self._lock:
-            total_size = 0
-            entry_count = len(self._data)
-            expired_count = 0
-            current_time = time.time()
-            
-            for entry in self._data.values():
-                total_size += len(entry.value)
-                if entry.expires_at and current_time > entry.expires_at:
-                    expired_count += 1
+            healthy = save_success and load_success and delete_success
             
             return {
-                'total_entries': entry_count,
-                'total_size_bytes': total_size,
-                'expired_entries': expired_count,
-                'max_size_limit': self.config.max_size,
-                'cleanup_interval': self._cleanup_interval,
-                'last_cleanup': self._last_cleanup
-            }
-    
-    def get_access_stats(self) -> Dict[str, Any]:
-        """Get access statistics for all entries."""
-        with self._lock:
-            stats = {}
-            for key, entry in self._data.items():
-                stats[key] = {
-                    'access_count': entry.access_count,
-                    'last_accessed': entry.last_accessed,
-                    'created_at': entry.created_at,
-                    'expires_at': entry.expires_at,
-                    'size_bytes': len(entry.value)
-                }
-            return stats
-    
-    def optimize(self) -> Dict[str, Any]:
-        """Optimize memory usage by cleaning up and reorganizing."""
-        with self._lock:
-            initial_count = len(self._data)
-            
-            # Force cleanup of expired entries
-            self._cleanup_expired()
-            
-            # Rebuild access order to remove any inconsistencies
-            valid_keys = set(self._data.keys())
-            self._access_order = [key for key in self._access_order if key in valid_keys]
-            
-            final_count = len(self._data)
-            cleaned_count = initial_count - final_count
-            
-            result = {
-                'initial_entries': initial_count,
-                'final_entries': final_count,
-                'cleaned_entries': cleaned_count,
-                'memory_usage': self.get_memory_usage()
+                "status": "healthy" if healthy else "unhealthy",
+                "backend_type": self.__class__.__name__,
+                "connected": self._connected,
+                "operations_test": {
+                    "save": save_success,
+                    "load": load_success,
+                    "delete": delete_success
+                },
+                "stats": self.get_stats().__dict__,
+                "timestamp": "2025-07-22 12:01:02",
+                "checked_by": "Vatsal216"
             }
             
-            logger.info(f"Memory optimization completed: {result}")
-            return result
+        except Exception as e:
+            return {
+                "status": "unhealthy",
+                "backend_type": self.__class__.__name__,
+                "connected": self._connected,
+                "error": str(e),
+                "timestamp": "2025-07-22 12:01:02",
+                "checked_by": "Vatsal216"
+            }
     
-    def __len__(self) -> int:
-        """Get number of entries."""
-        with self._lock:
-            return len(self._data)
+    def __enter__(self):
+        """Context manager entry"""
+        self.connect()
+        return self
     
-    def __contains__(self, key: str) -> bool:
-        """Check if key exists."""
-        return self.exists(key)
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit"""
+        self.disconnect()
     
     def __repr__(self) -> str:
-        return f"DictMemory(entries={len(self._data)}, max_size={self.config.max_size})"
+        return f"{self.__class__.__name__}(connected={self._connected}, keys={self.stats.total_keys})"

@@ -7,6 +7,7 @@ the power of CrewAI for agent definition and LangGraph for workflow orchestratio
 
 __version__ = "1.0.0"
 __author__ = "Vatsal216"
+__created__ = "2025-07-22 11:25:03"
 __license__ = "MIT"
 
 # Core imports
@@ -36,6 +37,7 @@ from .utils.logging import setup_logging, get_logger
 
 # Main orchestration class for easy usage
 from .crewgraph import CrewGraph
+from .utils.metrics import get_metrics_collector, MetricsCollector, PerformanceMonitor
 
 __all__ = [
     # Core classes
@@ -70,7 +72,18 @@ __all__ = [
     "ExecutionError",
     "setup_logging",
     "get_logger",
+    "get_metrics_collector",
+    "MetricsCollector", 
+    "PerformanceMonitor",
 ]
 
 # Setup default logging
 setup_logging()
+
+# Initialize global metrics on import
+_metrics = get_metrics_collector()
+_metrics.record_metric("crewgraph_library_imports_total", 1.0, {"version": __version__, "user": "Vatsal216"})
+
+print(f"🎉 CrewGraph AI v{__version__} loaded with built-in metrics!")
+print(f"📊 Metrics tracking enabled for user: Vatsal216")
+print(f"📅 Created by {__author__} on {__created__}")

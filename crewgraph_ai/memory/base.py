@@ -1,119 +1,164 @@
 """
-Base memory interface and configuration
+Base Memory Interface for CrewGraph AI
+Defines the contract for all memory backends
+
+Author: Vatsal216
+Created: 2025-07-22 12:01:02 UTC
 """
 
-import json
-import pickle
+import time
+import threading
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union
-from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Union, Tuple
 from enum import Enum
+from dataclasses import dataclass
 
 from ..utils.logging import get_logger
-from ..utils.exceptions import CrewGraphError
+from ..utils.exceptions import MemoryError
+from ..utils.metrics import get_metrics_collector
 
 logger = get_logger(__name__)
+metrics = get_metrics_collector()
 
 
-class MemoryType(Enum):
-    """Memory backend types"""
-    DICT = "dict"
-    REDIS = "redis"
-    FAISS = "faiss"
-    SQL = "sql"
-    MONGODB = "mongodb"
-
-
-class SerializationFormat(Enum):
-    """Serialization formats"""
-    JSON = "json"
-    PICKLE = "pickle"
-    RAW = "raw"
+class MemoryOperation(Enum):
+    """Memory operation types for tracking"""
+    SAVE = "save"
+    LOAD = "load"
+    DELETE = "delete"
+    EXISTS = "exists"
+    CLEAR = "clear"
+    LIST_KEYS = "list_keys"
+    GET_SIZE = "get_size"
+    SEARCH = "search"
 
 
 @dataclass
-class MemoryConfig:
-    """Memory configuration"""
-    memory_type: MemoryType = MemoryType.DICT
-    serialization: SerializationFormat = SerializationFormat.JSON
-    ttl: Optional[int] = None  # Time to live in seconds
-    max_size: Optional[int] = None  # Maximum number of entries
-    compression: bool = False
-    encryption_key: Optional[str] = None
-    
-    # Backend-specific configs
-    redis_host: str = "localhost"
-    redis_port: int = 6379
-    redis_db: int = 0
-    redis_password: Optional[str] = None
-    
-    faiss_dimension: int = 384
-    faiss_index_type: str = "IndexFlatL2"
-    
-    sql_url: str = "sqlite:///crewgraph_memory.db"
-    sql_table_name: str = "memory_store"
+class MemoryStats:
+    """Memory backend statistics"""
+    total_operations: int = 0
+    successful_operations: int = 0
+    failed_operations: int = 0
+    total_keys: int = 0
+    total_size_bytes: int = 0
+    average_operation_time: float = 0.0
+    last_operation_time: float = 0.0
+    backend_type: str = ""
+    created_at: str = "2025-07-22 12:01:02"
+    created_by: str = "Vatsal216"
 
 
 class BaseMemory(ABC):
     """
-    Abstract base class for memory backends.
+    Abstract base class for all memory backends in CrewGraph AI.
     
-    Provides a unified interface for different memory storage systems
-    with support for serialization, TTL, and optional encryption.
+    This class defines the standard interface that all memory backends
+    must implement, ensuring consistency across different storage systems.
+    
+    Created by: Vatsal216
+    Date: 2025-07-22 12:01:02 UTC
     """
     
-    def __init__(self, config: Optional[MemoryConfig] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
-        Initialize memory backend.
+        Initialize base memory backend.
         
         Args:
-            config: Memory configuration
+            config: Backend-specific configuration
         """
-        self.config = config or MemoryConfig()
-        self._serializer = self._get_serializer()
-        self._is_connected = False
+        self.config = config or {}
+        self.stats = MemoryStats(backend_type=self.__class__.__name__)
+        self._lock = threading.RLock()
+        self._connected = False
         
+        logger.info(f"Initializing {self.__class__.__name__} memory backend")
+        logger.info(f"User: Vatsal216, Time: 2025-07-22 12:01:02")
+    
+    def _record_operation(self, operation: MemoryOperation, success: bool, duration: float):
+        """Record operation metrics and statistics"""
+        with self._lock:
+            self.stats.total_operations += 1
+            self.stats.last_operation_time = time.time()
+            
+            if success:
+                self.stats.successful_operations += 1
+            else:
+                self.stats.failed_operations += 1
+            
+            # Update average operation time
+            if self.stats.total_operations > 0:
+                total_time = self.stats.average_operation_time * (self.stats.total_operations - 1)
+                self.stats.average_operation_time = (total_time + duration) / self.stats.total_operations
+        
+        # Record global metrics
+        metrics.record_duration(
+            f"memory_operation_{operation.value}_duration_seconds",
+            duration,
+            labels={
+                "backend": self.__class__.__name__,
+                "success": str(success),
+                "user": "Vatsal216"
+            }
+        )
+        
+        metrics.increment_counter(
+            f"memory_operations_total",
+            labels={
+                "backend": self.__class__.__name__,
+                "operation": operation.value,
+                "success": str(success),
+                "user": "Vatsal216"
+            }
+        )
+    
+    def _execute_with_metrics(self, operation: MemoryOperation, func, *args, **kwargs):
+        """Execute operation with automatic metrics recording"""
+        start_time = time.time()
+        success = False
+        
+        try:
+            result = func(*args, **kwargs)
+            success = True
+            return result
+        except Exception as e:
+            logger.error(f"Memory operation {operation.value} failed: {e}")
+            raise MemoryError(
+                f"Memory operation failed: {operation.value}",
+                operation=operation.value,
+                backend=self.__class__.__name__,
+                original_error=e
+            )
+        finally:
+            duration = time.time() - start_time
+            self._record_operation(operation, success, duration)
+    
     @abstractmethod
     def connect(self) -> None:
-        """Connect to memory backend."""
+        """Establish connection to the memory backend"""
         pass
     
     @abstractmethod
     def disconnect(self) -> None:
-        """Disconnect from memory backend."""
+        """Close connection to the memory backend"""
         pass
     
     @abstractmethod
-    def _get(self, key: str) -> Optional[bytes]:
-        """Get raw value from backend."""
+    def save(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        """
+        Save value to memory with optional TTL.
+        
+        Args:
+            key: Storage key
+            value: Value to store
+            ttl: Time to live in seconds
+            
+        Returns:
+            True if successful, False otherwise
+        """
         pass
     
     @abstractmethod
-    def _set(self, key: str, value: bytes, ttl: Optional[int] = None) -> None:
-        """Set raw value in backend."""
-        pass
-    
-    @abstractmethod
-    def _delete(self, key: str) -> bool:
-        """Delete key from backend."""
-        pass
-    
-    @abstractmethod
-    def _exists(self, key: str) -> bool:
-        """Check if key exists in backend."""
-        pass
-    
-    @abstractmethod
-    def _keys(self, pattern: str = "*") -> List[str]:
-        """Get keys matching pattern."""
-        pass
-    
-    @abstractmethod
-    def _clear(self) -> None:
-        """Clear all data from backend."""
-        pass
-    
-    def load(self, key: str) -> Optional[Any]:
+    def load(self, key: str) -> Any:
         """
         Load value from memory.
         
@@ -121,72 +166,24 @@ class BaseMemory(ABC):
             key: Storage key
             
         Returns:
-            Deserialized value or None if not found
+            Stored value or None if not found
         """
-        try:
-            if not self._is_connected:
-                self.connect()
-            
-            raw_value = self._get(key)
-            if raw_value is None:
-                return None
-            
-            return self._deserialize(raw_value)
-            
-        except Exception as e:
-            logger.error(f"Failed to load key '{key}': {e}")
-            return None
+        pass
     
-    def save(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+    @abstractmethod
+    def delete(self, key: str) -> bool:
         """
-        Save value to memory.
+        Delete value from memory.
         
         Args:
             key: Storage key
-            value: Value to store
-            ttl: Time to live in seconds (optional)
             
         Returns:
             True if successful, False otherwise
         """
-        try:
-            if not self._is_connected:
-                self.connect()
-            
-            serialized_value = self._serialize(value)
-            effective_ttl = ttl or self.config.ttl
-            
-            self._set(key, serialized_value, effective_ttl)
-            logger.debug(f"Saved key '{key}' to memory")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to save key '{key}': {e}")
-            return False
+        pass
     
-    def delete(self, key: str) -> bool:
-        """
-        Delete key from memory.
-        
-        Args:
-            key: Storage key
-            
-        Returns:
-            True if deleted, False if not found
-        """
-        try:
-            if not self._is_connected:
-                self.connect()
-            
-            result = self._delete(key)
-            if result:
-                logger.debug(f"Deleted key '{key}' from memory")
-            return result
-            
-        except Exception as e:
-            logger.error(f"Failed to delete key '{key}': {e}")
-            return False
-    
+    @abstractmethod
     def exists(self, key: str) -> bool:
         """
         Check if key exists in memory.
@@ -195,38 +192,11 @@ class BaseMemory(ABC):
             key: Storage key
             
         Returns:
-            True if exists, False otherwise
+            True if key exists, False otherwise
         """
-        try:
-            if not self._is_connected:
-                self.connect()
-            
-            return self._exists(key)
-            
-        except Exception as e:
-            logger.error(f"Failed to check existence of key '{key}': {e}")
-            return False
+        pass
     
-    def keys(self, pattern: str = "*") -> List[str]:
-        """
-        Get keys matching pattern.
-        
-        Args:
-            pattern: Key pattern (supports wildcards)
-            
-        Returns:
-            List of matching keys
-        """
-        try:
-            if not self._is_connected:
-                self.connect()
-            
-            return self._keys(pattern)
-            
-        except Exception as e:
-            logger.error(f"Failed to get keys with pattern '{pattern}': {e}")
-            return []
-    
+    @abstractmethod
     def clear(self) -> bool:
         """
         Clear all data from memory.
@@ -234,135 +204,152 @@ class BaseMemory(ABC):
         Returns:
             True if successful, False otherwise
         """
-        try:
-            if not self._is_connected:
-                self.connect()
+        pass
+    
+    @abstractmethod
+    def list_keys(self, pattern: Optional[str] = None) -> List[str]:
+        """
+        List all keys in memory, optionally filtered by pattern.
+        
+        Args:
+            pattern: Optional pattern to filter keys
             
-            self._clear()
-            logger.info("Memory cleared")
-            return True
+        Returns:
+            List of keys
+        """
+        pass
+    
+    @abstractmethod
+    def get_size(self) -> int:
+        """
+        Get total size of stored data in bytes.
+        
+        Returns:
+            Size in bytes
+        """
+        pass
+    
+    def batch_save(self, data: Dict[str, Any], ttl: Optional[int] = None) -> Dict[str, bool]:
+        """
+        Save multiple key-value pairs in batch.
+        
+        Args:
+            data: Dictionary of key-value pairs
+            ttl: Time to live in seconds
+            
+        Returns:
+            Dictionary of key -> success status
+        """
+        def _batch_save():
+            results = {}
+            for key, value in data.items():
+                try:
+                    results[key] = self.save(key, value, ttl)
+                except Exception as e:
+                    logger.error(f"Batch save failed for key '{key}': {e}")
+                    results[key] = False
+            return results
+        
+        return self._execute_with_metrics(MemoryOperation.SAVE, _batch_save)
+    
+    def batch_load(self, keys: List[str]) -> Dict[str, Any]:
+        """
+        Load multiple values in batch.
+        
+        Args:
+            keys: List of keys to load
+            
+        Returns:
+            Dictionary of key -> value (None for missing keys)
+        """
+        def _batch_load():
+            results = {}
+            for key in keys:
+                try:
+                    results[key] = self.load(key)
+                except Exception as e:
+                    logger.error(f"Batch load failed for key '{key}': {e}")
+                    results[key] = None
+            return results
+        
+        return self._execute_with_metrics(MemoryOperation.LOAD, _batch_load)
+    
+    def batch_delete(self, keys: List[str]) -> Dict[str, bool]:
+        """
+        Delete multiple keys in batch.
+        
+        Args:
+            keys: List of keys to delete
+            
+        Returns:
+            Dictionary of key -> success status
+        """
+        def _batch_delete():
+            results = {}
+            for key in keys:
+                try:
+                    results[key] = self.delete(key)
+                except Exception as e:
+                    logger.error(f"Batch delete failed for key '{key}': {e}")
+                    results[key] = False
+            return results
+        
+        return self._execute_with_metrics(MemoryOperation.DELETE, _batch_delete)
+    
+    def get_stats(self) -> MemoryStats:
+        """Get memory backend statistics"""
+        with self._lock:
+            # Update current stats
+            self.stats.total_keys = len(self.list_keys())
+            self.stats.total_size_bytes = self.get_size()
+            return self.stats
+    
+    def get_health(self) -> Dict[str, Any]:
+        """Get memory backend health status"""
+        try:
+            # Test basic operations
+            test_key = f"health_check_{int(time.time())}"
+            test_value = "health_check_value"
+            
+            # Test save/load/delete
+            save_success = self.save(test_key, test_value, ttl=60)
+            load_success = self.load(test_key) == test_value
+            delete_success = self.delete(test_key)
+            
+            healthy = save_success and load_success and delete_success
+            
+            return {
+                "status": "healthy" if healthy else "unhealthy",
+                "backend_type": self.__class__.__name__,
+                "connected": self._connected,
+                "operations_test": {
+                    "save": save_success,
+                    "load": load_success,
+                    "delete": delete_success
+                },
+                "stats": self.get_stats().__dict__,
+                "timestamp": "2025-07-22 12:01:02",
+                "checked_by": "Vatsal216"
+            }
             
         except Exception as e:
-            logger.error(f"Failed to clear memory: {e}")
-            return False
-    
-    def get_stats(self) -> Dict[str, Any]:
-        """Get memory backend statistics."""
-        return {
-            'backend_type': self.config.memory_type.value,
-            'serialization': self.config.serialization.value,
-            'connected': self._is_connected,
-            'total_keys': len(self.keys())
-        }
-    
-    def _serialize(self, value: Any) -> bytes:
-        """Serialize value based on configuration."""
-        try:
-            if self.config.serialization == SerializationFormat.JSON:
-                serialized = json.dumps(value, default=str).encode('utf-8')
-            elif self.config.serialization == SerializationFormat.PICKLE:
-                serialized = pickle.dumps(value)
-            else:  # RAW
-                if isinstance(value, (str, bytes)):
-                    serialized = value.encode('utf-8') if isinstance(value, str) else value
-                else:
-                    raise ValueError(f"RAW serialization requires str or bytes, got {type(value)}")
-            
-            # Apply compression if enabled
-            if self.config.compression:
-                import zlib
-                serialized = zlib.compress(serialized)
-            
-            # Apply encryption if configured
-            if self.config.encryption_key:
-                serialized = self._encrypt(serialized)
-            
-            return serialized
-            
-        except Exception as e:
-            logger.error(f"Serialization failed: {e}")
-            raise CrewGraphError(f"Failed to serialize value: {e}")
-    
-    def _deserialize(self, data: bytes) -> Any:
-        """Deserialize value based on configuration."""
-        try:
-            # Apply decryption if configured
-            if self.config.encryption_key:
-                data = self._decrypt(data)
-            
-            # Apply decompression if enabled
-            if self.config.compression:
-                import zlib
-                data = zlib.decompress(data)
-            
-            if self.config.serialization == SerializationFormat.JSON:
-                return json.loads(data.decode('utf-8'))
-            elif self.config.serialization == SerializationFormat.PICKLE:
-                return pickle.loads(data)
-            else:  # RAW
-                return data.decode('utf-8')
-            
-        except Exception as e:
-            logger.error(f"Deserialization failed: {e}")
-            raise CrewGraphError(f"Failed to deserialize value: {e}")
-    
-    def _encrypt(self, data: bytes) -> bytes:
-        """Encrypt data using configured key."""
-        try:
-            from cryptography.fernet import Fernet
-            import base64
-            import hashlib
-            
-            # Create key from password
-            key = base64.urlsafe_b64encode(
-                hashlib.sha256(self.config.encryption_key.encode()).digest()
-            )
-            
-            fernet = Fernet(key)
-            return fernet.encrypt(data)
-            
-        except ImportError:
-            logger.warning("cryptography package not available, skipping encryption")
-            return data
-        except Exception as e:
-            logger.error(f"Encryption failed: {e}")
-            return data
-    
-    def _decrypt(self, data: bytes) -> bytes:
-        """Decrypt data using configured key."""
-        try:
-            from cryptography.fernet import Fernet
-            import base64
-            import hashlib
-            
-            # Create key from password
-            key = base64.urlsafe_b64encode(
-                hashlib.sha256(self.config.encryption_key.encode()).digest()
-            )
-            
-            fernet = Fernet(key)
-            return fernet.decrypt(data)
-            
-        except ImportError:
-            logger.warning("cryptography package not available, skipping decryption")
-            return data
-        except Exception as e:
-            logger.error(f"Decryption failed: {e}")
-            return data
-    
-    def _get_serializer(self):
-        """Get appropriate serializer based on configuration."""
-        return {
-            SerializationFormat.JSON: (json.dumps, json.loads),
-            SerializationFormat.PICKLE: (pickle.dumps, pickle.loads),
-            SerializationFormat.RAW: (str, str)
-        }.get(self.config.serialization, (json.dumps, json.loads))
+            return {
+                "status": "unhealthy",
+                "backend_type": self.__class__.__name__,
+                "connected": self._connected,
+                "error": str(e),
+                "timestamp": "2025-07-22 12:01:02",
+                "checked_by": "Vatsal216"
+            }
     
     def __enter__(self):
-        """Context manager entry."""
+        """Context manager entry"""
         self.connect()
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit."""
+        """Context manager exit"""
         self.disconnect()
+    
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(connected={self._connected}, keys={self.stats.total_keys})"
