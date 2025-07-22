@@ -1,0 +1,133 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crewgraph-ai
+  labels:
+    app: crewgraph-ai
+    version: "1.0.0"
+    environment: production
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: crewgraph-ai
+  template:
+    metadata:
+      labels:
+        app: crewgraph-ai
+        version: "1.0.0"
+    spec:
+      containers:
+      - name: crewgraph-ai
+        image: crewgraph-ai:1.0.0
+        ports:
+        - containerPort: 8000
+          name: api
+        - containerPort: 8080
+          name: metrics
+        env:
+        - name: ENVIRONMENT
+          value: "production"
+        - name: REDIS_HOST
+          value: "redis-service"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-secret
+              key: password
+        - name: MAX_WORKERS
+          value: "10"
+        - name: MAX_WORKFLOWS
+          value: "50"
+        - name: CREWGRAPH_ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: crewgraph-secret
+              key: encryption-key
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        volumeMounts:
+        - name: logs
+          mountPath: /var/log/crewgraph
+        - name: config
+          mountPath: /app/config
+      volumes:
+      - name: logs
+        emptyDir: {}
+      - name: config
+        configMap:
+          name: crewgraph-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: crewgraph-ai-service
+spec:
+  selector:
+    app: crewgraph-ai
+  ports:
+  - name: api
+    port: 8000
+    targetPort: 8000
+  - name: metrics
+    port: 8080
+    targetPort: 8080
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: crewgraph-config
+data:
+  config.yaml: |
+    environment: production
+    logging:
+      level: INFO
+      format: json
+      file_logging: true
+    memory:
+      backend: redis
+      ttl: 3600
+      compression: true
+    workflow:
+      max_concurrent_tasks: 5
+      task_timeout: 600
+      enable_planning: true
+    security:
+      enable_encryption: true
+      enable_monitoring: true
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: crewgraph-secret
+type: Opaque
+data:
+  encryption-key: <base64-encoded-key>
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: redis-secret
+type: Opaque
+data:
+  password: <base64-encoded-password>
