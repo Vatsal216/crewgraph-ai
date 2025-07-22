@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import threading
 
-from crewai import Tool
+from crewai.tools import BaseTool as CrewAIBaseTool
 from ..utils.logging import get_logger
 from ..utils.metrics import get_metrics_collector
 from ..utils.exceptions import ValidationError
@@ -224,12 +224,12 @@ class ToolValidator:
             labels={"validation_level": self.config.validation_level.value, "user": "Vatsal216"}
         )
     
-    def validate_tool(self, tool: Union[Tool, Callable], tool_name: Optional[str] = None) -> ValidationResult:
+    def validate_tool(self, tool: Union[CrewAIBaseTool, Callable], tool_name: Optional[str] = None) -> ValidationResult:
         """
         Validate a tool comprehensively.
         
         Args:
-            tool: Tool to validate (CrewAI Tool or callable)
+            tool: CrewAI BaseTool to validate (CrewAI Tool or callable)
             tool_name: Optional tool name override
             
         Returns:
@@ -238,7 +238,7 @@ class ToolValidator:
         start_time = time.time()
         
         # Determine tool name and function
-        if isinstance(tool, Tool):
+        if isinstance(tool, CrewAIBaseTool):
             name = tool_name or tool.name
             func = tool.func
         else:
@@ -955,7 +955,7 @@ class ToolValidator:
             ]
         }
     
-    def validate_batch(self, tools: List[Union[Tool, Callable]], 
+    def validate_batch(self, tools: List[Union[CrewAIBaseTool, Callable]], 
                       tool_names: Optional[List[str]] = None) -> Dict[str, ValidationResult]:
         """
         Validate multiple tools in batch.
