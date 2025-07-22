@@ -11,7 +11,7 @@ import inspect
 from typing import Any, Dict, List, Optional, Callable, Union
 from functools import wraps
 
-from crewai import Tool
+from crewai.tools import BaseTool as CrewAIBaseTool
 from .base import BaseTool, ToolMetadata, ToolCategory, ToolStatus
 from ..utils.logging import get_logger
 from ..utils.metrics import get_metrics_collector
@@ -37,7 +37,7 @@ class ToolWrapper(BaseTool):
     """
     
     def __init__(self, 
-                 tool_or_function: Union[Tool, Callable],
+                 tool_or_function: Union[CrewAIBaseTool, Callable],
                  metadata: Optional[ToolMetadata] = None,
                  enable_caching: bool = False,
                  cache_ttl: int = 3600,
@@ -48,7 +48,7 @@ class ToolWrapper(BaseTool):
         Initialize tool wrapper.
         
         Args:
-            tool_or_function: CrewAI Tool or callable function to wrap
+            tool_or_function: CrewAI BaseTool or callable function to wrap
             metadata: Optional metadata (will be auto-generated if not provided)
             enable_caching: Enable result caching
             cache_ttl: Cache time-to-live in seconds
@@ -57,7 +57,7 @@ class ToolWrapper(BaseTool):
             retry_delay: Delay between retries in seconds
         """
         # Extract function and metadata
-        if isinstance(tool_or_function, Tool):
+        if isinstance(tool_or_function, CrewAIBaseTool):
             self.wrapped_tool = tool_or_function
             self.wrapped_function = tool_or_function.func
             auto_metadata = self._extract_metadata_from_tool(tool_or_function)
@@ -186,7 +186,7 @@ class ToolWrapper(BaseTool):
         # Re-raise the last exception
         raise last_exception
     
-    def _extract_metadata_from_tool(self, tool: Tool) -> ToolMetadata:
+    def _extract_metadata_from_tool(self, tool: CrewAIBaseTool) -> ToolMetadata:
         """Extract metadata from CrewAI Tool"""
         return ToolMetadata(
             name=tool.name,
@@ -416,12 +416,12 @@ class ToolWrapper(BaseTool):
             )
         }
     
-    def to_crewai_tool(self) -> Tool:
+    def to_crewai_tool(self) -> CrewAIBaseTool:
         """Convert back to CrewAI Tool"""
         if self.wrapped_tool:
             return self.wrapped_tool
         else:
-            return Tool(
+            return CrewAIBaseTool(
                 name=self.metadata.name,
                 func=self.wrapped_function,
                 description=self.metadata.description
@@ -448,7 +448,7 @@ def wrap_function(func: Callable, **kwargs) -> ToolWrapper:
     return ToolWrapper(func, **kwargs)
 
 
-def wrap_tool(tool: Tool, **kwargs) -> ToolWrapper:
+def wrap_tool(tool: CrewAIBaseTool, **kwargs) -> ToolWrapper:
     """
     Convenience function to wrap a CrewAI Tool.
     

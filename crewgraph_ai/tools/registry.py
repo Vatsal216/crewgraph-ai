@@ -586,3 +586,49 @@ class ToolRegistry:
     
     def __repr__(self) -> str:
         return f"ToolRegistry(tools={len(self._tools)}, categories={len(self._categories)})"
+
+
+# Global registry instance
+_global_registry: Optional[ToolRegistry] = None
+
+
+def get_global_registry() -> ToolRegistry:
+    """
+    Get the global tool registry instance.
+    
+    Returns:
+        Global ToolRegistry instance
+    """
+    global _global_registry
+    
+    if _global_registry is None:
+        _global_registry = ToolRegistry(name="global_registry")
+        logger.info("Global tool registry created")
+    
+    return _global_registry
+
+
+def register_tool_globally(tool: "BaseTool") -> bool:
+    """
+    Register a tool in the global registry.
+    
+    Args:
+        tool: Tool to register
+        
+    Returns:
+        True if registered successfully
+    """
+    return get_global_registry().register_tool(tool)
+
+
+def get_global_tool(name: str) -> Optional["BaseTool"]:
+    """
+    Get a tool from the global registry.
+    
+    Args:
+        name: Tool name
+        
+    Returns:
+        Tool instance or None
+    """
+    return get_global_registry().get_tool(name)

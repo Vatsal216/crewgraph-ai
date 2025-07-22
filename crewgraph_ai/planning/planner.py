@@ -463,3 +463,12 @@ class DynamicPlanner(BasePlanner):
         return True
     
     def add_custom_strategy(self, name: str, strategy: PlanningStrategy) -> None:
+        """
+        Add a custom planning strategy.
+        
+        Args:
+            name: Strategy name
+            strategy: Planning strategy implementation
+        """
+        self.strategies[name] = strategy
+        logger.info(f"Custom strategy '{name}' added")

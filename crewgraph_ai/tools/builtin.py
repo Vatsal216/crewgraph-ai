@@ -13,7 +13,7 @@ import hashlib
 from typing import Any, Dict, List, Optional, Union
 from dataclasses import dataclass
 
-from crewai import Tool
+from crewai.tools import BaseTool as CrewAIBaseTool
 from .base import ToolMetadata, ToolCategory, ToolStatus
 from .wrapper import ToolWrapper, tool_decorator
 from ..utils.logging import get_logger
