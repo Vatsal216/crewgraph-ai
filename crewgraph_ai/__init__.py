@@ -45,12 +45,12 @@ Advanced Usage:
     print(f"Workflow visualization: {viz_path}")
     ```
 
-For more information, visit: https://github.com/Vatsal216/crewgraph-ai
+For more information, visit: https://github.com/crewgraph/crewgraph-ai
 """
 
 __version__ = "1.0.0"
-__author__ = "Vatsal216"
-__created__ = "2025-07-22 11:25:03"
+__author__ = "CrewGraph AI Team"
+__created__ = "Production Release"
 __license__ = "MIT"
 
 # Core imports
@@ -88,17 +88,17 @@ from .communication import (
 # from .crewgraph import CrewGraph, CrewGraphConfig
 from .config import CrewGraphSettings, get_settings, configure, quick_setup
 
-# Intelligence imports
-from .intelligence import (
-    BottleneckAnalyzer,
-    MLModelManager,
-    ModelType,
-    OptimizationStrategy,
-    PerformancePredictor,
-    ResourceAnalyzer,
-    ResourcePredictor,
-    WorkflowOptimizer,
-)
+# Intelligence imports (commented out due to missing numpy dependency)
+# from .intelligence import (
+#     BottleneckAnalyzer,
+#     MLModelManager,
+#     ModelType,
+#     OptimizationStrategy,
+#     PerformancePredictor,
+#     ResourceAnalyzer,
+#     ResourcePredictor,
+#     WorkflowOptimizer,
+# )
 
 # NLP imports
 from .nlp import (
@@ -128,21 +128,20 @@ from .security import (
     User,
 )
 
-# Templates imports
-from .templates import (
-    ContentGenerationTemplate,
-    DataPipelineTemplate,
-    ResearchWorkflowTemplate,
-    TemplateBuilder,
-    TemplateCategory,
-    TemplateRegistry,
-    WorkflowTemplate,
-)
-from .tools.builtin import BuiltinTools
-
-# Tools imports
-from .tools.registry import ToolRegistry
-from .tools.wrapper import ToolWrapper
+# Templates imports (commented out due to missing crewai dependency)
+# from .templates import (
+#     ContentGenerationTemplate,
+#     DataPipelineTemplate,
+#     ResearchWorkflowTemplate,
+#     TemplateBuilder,
+#     TemplateCategory,
+#     TemplateRegistry,
+#     WorkflowTemplate,
+# )
+# Tools imports (commented out due to missing crewai dependency)
+# from .tools.builtin import BuiltinTools
+# from .tools.registry import ToolRegistry
+# from .tools.wrapper import ToolWrapper
 
 # Type definitions
 from .types import (
@@ -363,12 +362,16 @@ if OPTIMIZATION_AVAILABLE:
 # Setup default logging
 setup_logging()
 
+# Import configuration for dynamic user
+from .config import get_current_user
+
 # Initialize global metrics on import
 _metrics = get_metrics_collector()
+current_user = get_current_user()
 _metrics.record_metric(
-    "crewgraph_library_imports_total", 1.0, {"version": __version__, "user": "Vatsal216"}
+    "crewgraph_library_imports_total", 1.0, {"version": __version__, "user": current_user}
 )
 
 print(f"🎉 CrewGraph AI v{__version__} loaded with built-in metrics!")
-print(f"📊 Metrics tracking enabled for user: Vatsal216")
-print(f"📅 Created by {__author__} on {__created__}")
+print(f"📊 Metrics tracking enabled for user: {current_user}")
+print(f"📅 Created by {__author__} - {__created__}")
