@@ -21,15 +21,10 @@ Author: Vatsal216
 Created: 2025-07-23 06:03:54 UTC
 """
 
-from .dashboard import PerformanceDashboard, DashboardConfig
-from .analyzer import WorkflowAnalyzer, AnalysisReport
+from .analyzer import AnalysisReport, WorkflowAnalyzer
+from .dashboard import DashboardConfig, PerformanceDashboard
 
-__all__ = [
-    "PerformanceDashboard",
-    "DashboardConfig",
-    "WorkflowAnalyzer",
-    "AnalysisReport"
-]
+__all__ = ["PerformanceDashboard", "DashboardConfig", "WorkflowAnalyzer", "AnalysisReport"]
 
 __version__ = "1.0.0"
 __author__ = "Vatsal216"

@@ -12,25 +12,24 @@ Created by: Vatsal216
 Date: 2025-07-23
 """
 
-from .workflow_templates import (
-    WorkflowTemplate,
-    TemplateRegistry,
-    TemplateCategory,
-    TemplateBuilder
-)
-
+from .content_generation import ContentGenerationTemplate
 from .data_pipeline import DataPipelineTemplate
 from .research_workflow import ResearchWorkflowTemplate
-from .content_generation import ContentGenerationTemplate
+from .workflow_templates import (
+    TemplateBuilder,
+    TemplateCategory,
+    TemplateRegistry,
+    WorkflowTemplate,
+)
 
 __all__ = [
     "WorkflowTemplate",
-    "TemplateRegistry", 
+    "TemplateRegistry",
     "TemplateCategory",
     "TemplateBuilder",
     "DataPipelineTemplate",
     "ResearchWorkflowTemplate",
-    "ContentGenerationTemplate"
+    "ContentGenerationTemplate",
 ]
 
 # Version info

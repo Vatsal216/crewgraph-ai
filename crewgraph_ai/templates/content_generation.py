@@ -19,20 +19,21 @@ Created by: Vatsal216
 Date: 2025-07-23
 """
 
-from typing import Dict, List, Any
+from typing import Any, Dict, List
+
 from crewai import Agent
 
-from .workflow_templates import (
-    WorkflowTemplate, 
-    TemplateMetadata, 
-    TemplateParameter, 
-    TemplateStep,
-    TemplateCategory
-)
 from ..core.agents import AgentWrapper
-from ..core.tasks import TaskWrapper
 from ..core.orchestrator import GraphOrchestrator
+from ..core.tasks import TaskWrapper
 from ..utils.logging import get_logger
+from .workflow_templates import (
+    TemplateCategory,
+    TemplateMetadata,
+    TemplateParameter,
+    TemplateStep,
+    WorkflowTemplate,
+)
 
 logger = get_logger(__name__)
 
@@ -40,11 +41,11 @@ logger = get_logger(__name__)
 class ContentGenerationTemplate(WorkflowTemplate):
     """
     Template for creating automated content generation workflows.
-    
+
     This template provides a comprehensive framework for content creation
     with planning, research, writing, review, and optimization processes.
     """
-    
+
     def _define_metadata(self) -> TemplateMetadata:
         """Define template metadata."""
         return TemplateMetadata(
@@ -60,7 +61,7 @@ class ContentGenerationTemplate(WorkflowTemplate):
                 "Content topic and objectives",
                 "Target audience definition",
                 "Brand guidelines (optional)",
-                "Distribution channel requirements"
+                "Distribution channel requirements",
             ],
             examples=[
                 {
@@ -70,8 +71,8 @@ class ContentGenerationTemplate(WorkflowTemplate):
                         "content_topic": "Benefits of AI in small business",
                         "content_type": "blog_post",
                         "target_audience": "small business owners",
-                        "content_length": "medium"
-                    }
+                        "content_length": "medium",
+                    },
                 },
                 {
                     "name": "Social Media Campaign",
@@ -80,12 +81,12 @@ class ContentGenerationTemplate(WorkflowTemplate):
                         "content_topic": "Product launch announcement",
                         "content_type": "social_media",
                         "target_audience": "technology enthusiasts",
-                        "platforms": ["twitter", "linkedin", "instagram"]
-                    }
-                }
-            ]
+                        "platforms": ["twitter", "linkedin", "instagram"],
+                    },
+                },
+            ],
         )
-    
+
     def _define_parameters(self) -> List[TemplateParameter]:
         """Define template parameters."""
         return [
@@ -94,7 +95,11 @@ class ContentGenerationTemplate(WorkflowTemplate):
                 description="Main topic or subject for the content",
                 param_type="str",
                 required=True,
-                examples=["AI in healthcare", "sustainable living tips", "digital marketing trends"]
+                examples=[
+                    "AI in healthcare",
+                    "sustainable living tips",
+                    "digital marketing trends",
+                ],
             ),
             TemplateParameter(
                 name="content_type",
@@ -102,18 +107,31 @@ class ContentGenerationTemplate(WorkflowTemplate):
                 param_type="str",
                 required=True,
                 default_value="blog_post",
-                validation_rules={"allowed_values": [
-                    "blog_post", "article", "social_media", "newsletter", 
-                    "white_paper", "case_study", "product_description", "email_campaign"
-                ]},
-                examples=["blog_post", "article", "social_media"]
+                validation_rules={
+                    "allowed_values": [
+                        "blog_post",
+                        "article",
+                        "social_media",
+                        "newsletter",
+                        "white_paper",
+                        "case_study",
+                        "product_description",
+                        "email_campaign",
+                    ]
+                },
+                examples=["blog_post", "article", "social_media"],
             ),
             TemplateParameter(
                 name="target_audience",
                 description="Primary target audience for the content",
                 param_type="str",
                 required=True,
-                examples=["business professionals", "students", "technology enthusiasts", "general public"]
+                examples=[
+                    "business professionals",
+                    "students",
+                    "technology enthusiasts",
+                    "general public",
+                ],
             ),
             TemplateParameter(
                 name="content_length",
@@ -122,7 +140,7 @@ class ContentGenerationTemplate(WorkflowTemplate):
                 required=False,
                 default_value="medium",
                 validation_rules={"allowed_values": ["short", "medium", "long", "comprehensive"]},
-                examples=["short", "medium", "long"]
+                examples=["short", "medium", "long"],
             ),
             TemplateParameter(
                 name="tone",
@@ -130,11 +148,18 @@ class ContentGenerationTemplate(WorkflowTemplate):
                 param_type="str",
                 required=False,
                 default_value="professional",
-                validation_rules={"allowed_values": [
-                    "professional", "casual", "friendly", "authoritative", 
-                    "conversational", "technical", "persuasive"
-                ]},
-                examples=["professional", "casual", "friendly"]
+                validation_rules={
+                    "allowed_values": [
+                        "professional",
+                        "casual",
+                        "friendly",
+                        "authoritative",
+                        "conversational",
+                        "technical",
+                        "persuasive",
+                    ]
+                },
+                examples=["professional", "casual", "friendly"],
             ),
             TemplateParameter(
                 name="content_goals",
@@ -142,25 +167,33 @@ class ContentGenerationTemplate(WorkflowTemplate):
                 param_type="list",
                 required=False,
                 default_value=["inform", "engage"],
-                validation_rules={"allowed_values": [
-                    "inform", "engage", "persuade", "educate", "entertain", 
-                    "convert", "build_awareness", "drive_traffic"
-                ]},
-                examples=[["inform", "engage"], ["persuade", "convert"]]
+                validation_rules={
+                    "allowed_values": [
+                        "inform",
+                        "engage",
+                        "persuade",
+                        "educate",
+                        "entertain",
+                        "convert",
+                        "build_awareness",
+                        "drive_traffic",
+                    ]
+                },
+                examples=[["inform", "engage"], ["persuade", "convert"]],
             ),
             TemplateParameter(
                 name="seo_optimization",
                 description="Enable SEO optimization for the content",
                 param_type="bool",
                 required=False,
-                default_value=True
+                default_value=True,
             ),
             TemplateParameter(
                 name="include_research",
                 description="Include background research in content creation",
                 param_type="bool",
                 required=False,
-                default_value=True
+                default_value=True,
             ),
             TemplateParameter(
                 name="review_cycles",
@@ -168,7 +201,7 @@ class ContentGenerationTemplate(WorkflowTemplate):
                 param_type="int",
                 required=False,
                 default_value=2,
-                validation_rules={"min_value": 1, "max_value": 5}
+                validation_rules={"min_value": 1, "max_value": 5},
             ),
             TemplateParameter(
                 name="brand_guidelines",
@@ -176,7 +209,7 @@ class ContentGenerationTemplate(WorkflowTemplate):
                 param_type="dict",
                 required=False,
                 default_value={},
-                examples=[{"brand_voice": "friendly", "avoid_terms": ["cheap", "discount"]}]
+                examples=[{"brand_voice": "friendly", "avoid_terms": ["cheap", "discount"]}],
             ),
             TemplateParameter(
                 name="platforms",
@@ -184,11 +217,21 @@ class ContentGenerationTemplate(WorkflowTemplate):
                 param_type="list",
                 required=False,
                 default_value=["general"],
-                validation_rules={"allowed_values": [
-                    "general", "twitter", "linkedin", "facebook", "instagram", 
-                    "youtube", "tiktok", "blog", "website", "email"
-                ]},
-                examples=[["twitter", "linkedin"], ["instagram", "facebook"]]
+                validation_rules={
+                    "allowed_values": [
+                        "general",
+                        "twitter",
+                        "linkedin",
+                        "facebook",
+                        "instagram",
+                        "youtube",
+                        "tiktok",
+                        "blog",
+                        "website",
+                        "email",
+                    ]
+                },
+                examples=[["twitter", "linkedin"], ["instagram", "facebook"]],
             ),
             TemplateParameter(
                 name="call_to_action",
@@ -196,10 +239,10 @@ class ContentGenerationTemplate(WorkflowTemplate):
                 param_type="str",
                 required=False,
                 default_value="",
-                examples=["Visit our website", "Contact us today", "Download our guide"]
-            )
+                examples=["Visit our website", "Contact us today", "Download our guide"],
+            ),
         ]
-    
+
     def _define_steps(self) -> List[TemplateStep]:
         """Define workflow steps."""
         return [
@@ -212,7 +255,7 @@ class ContentGenerationTemplate(WorkflowTemplate):
                 inputs=["content_topic", "content_type", "target_audience", "content_goals"],
                 outputs=["content_plan", "content_outline", "strategy_brief"],
                 tools=["content_planner", "audience_analyzer"],
-                configuration={"planning_depth": "comprehensive"}
+                configuration={"planning_depth": "comprehensive"},
             ),
             TemplateStep(
                 step_id="research_gathering",
@@ -225,7 +268,7 @@ class ContentGenerationTemplate(WorkflowTemplate):
                 dependencies=["content_planning"],
                 tools=["research_tools", "trend_analyzer"],
                 configuration={"research_depth": "focused"},
-                optional=False  # Can be skipped if include_research=False
+                optional=False,  # Can be skipped if include_research=False
             ),
             TemplateStep(
                 step_id="content_creation",
@@ -237,7 +280,7 @@ class ContentGenerationTemplate(WorkflowTemplate):
                 outputs=["draft_content", "content_structure"],
                 dependencies=["research_gathering"],
                 tools=["content_writer", "grammar_checker"],
-                configuration={"writing_style": "adaptive"}
+                configuration={"writing_style": "adaptive"},
             ),
             TemplateStep(
                 step_id="seo_optimization",
@@ -250,7 +293,7 @@ class ContentGenerationTemplate(WorkflowTemplate):
                 dependencies=["content_creation"],
                 tools=["seo_analyzer", "keyword_optimizer"],
                 configuration={"optimization_level": "comprehensive"},
-                optional=False  # Can be skipped if seo_optimization=False
+                optional=False,  # Can be skipped if seo_optimization=False
             ),
             TemplateStep(
                 step_id="quality_review",
@@ -262,7 +305,7 @@ class ContentGenerationTemplate(WorkflowTemplate):
                 outputs=["reviewed_content", "feedback_report"],
                 dependencies=["seo_optimization"],
                 tools=["quality_checker", "brand_validator"],
-                configuration={"review_criteria": "comprehensive"}
+                configuration={"review_criteria": "comprehensive"},
             ),
             TemplateStep(
                 step_id="content_refinement",
@@ -274,7 +317,7 @@ class ContentGenerationTemplate(WorkflowTemplate):
                 outputs=["final_content", "revision_log"],
                 dependencies=["quality_review"],
                 tools=["content_editor", "style_checker"],
-                configuration={"refinement_focus": "quality"}
+                configuration={"refinement_focus": "quality"},
             ),
             TemplateStep(
                 step_id="format_adaptation",
@@ -286,7 +329,7 @@ class ContentGenerationTemplate(WorkflowTemplate):
                 outputs=["formatted_content", "platform_versions"],
                 dependencies=["content_refinement"],
                 tools=["format_converter", "platform_optimizer"],
-                configuration={"multi_platform": True}
+                configuration={"multi_platform": True},
             ),
             TemplateStep(
                 step_id="final_approval",
@@ -298,14 +341,14 @@ class ContentGenerationTemplate(WorkflowTemplate):
                 outputs=["approved_content", "publication_package"],
                 dependencies=["format_adaptation"],
                 tools=["approval_checker", "publication_prep"],
-                configuration={"approval_criteria": "standard"}
-            )
+                configuration={"approval_criteria": "standard"},
+            ),
         ]
-    
+
     def _create_agents(self, params: Dict[str, Any]) -> Dict[str, AgentWrapper]:
         """Create agents for the content generation workflow."""
         agents = {}
-        
+
         # Content Strategist Agent
         content_strategist = Agent(
             role="Content Strategist",
@@ -314,14 +357,12 @@ class ContentGenerationTemplate(WorkflowTemplate):
             planning, audience analysis, and strategic thinking. You excel at creating 
             content plans that align with business goals and audience needs.""",
             verbose=True,
-            allow_delegation=True
+            allow_delegation=True,
         )
         agents["content_strategist"] = AgentWrapper(
-            name="ContentStrategist",
-            role="Content Strategist",
-            crew_agent=content_strategist
+            name="ContentStrategist", role="Content Strategist", crew_agent=content_strategist
         )
-        
+
         # Content Researcher Agent
         content_researcher = Agent(
             role="Content Researcher",
@@ -330,14 +371,12 @@ class ContentGenerationTemplate(WorkflowTemplate):
             relevant, up-to-date information and insights. You excel at identifying 
             key trends, data, and supporting information that makes content valuable.""",
             verbose=True,
-            allow_delegation=False
+            allow_delegation=False,
         )
         agents["content_researcher"] = AgentWrapper(
-            name="ContentResearcher",
-            role="Content Researcher",
-            crew_agent=content_researcher
+            name="ContentResearcher", role="Content Researcher", crew_agent=content_researcher
         )
-        
+
         # Content Writer Agent
         content_writer = Agent(
             role="Content Writer",
@@ -346,14 +385,12 @@ class ContentGenerationTemplate(WorkflowTemplate):
             engaging, well-structured content across various formats. You excel at 
             adapting your writing style to different audiences and purposes.""",
             verbose=True,
-            allow_delegation=False
+            allow_delegation=False,
         )
         agents["content_writer"] = AgentWrapper(
-            name="ContentWriter",
-            role="Content Writer",
-            crew_agent=content_writer
+            name="ContentWriter", role="Content Writer", crew_agent=content_writer
         )
-        
+
         # SEO Specialist Agent
         seo_specialist = Agent(
             role="SEO Specialist",
@@ -362,14 +399,12 @@ class ContentGenerationTemplate(WorkflowTemplate):
             search engine optimization techniques. You excel at optimizing content 
             for better visibility while maintaining quality and readability.""",
             verbose=True,
-            allow_delegation=False
+            allow_delegation=False,
         )
         agents["seo_specialist"] = AgentWrapper(
-            name="SEOSpecialist",
-            role="SEO Specialist",
-            crew_agent=seo_specialist
+            name="SEOSpecialist", role="SEO Specialist", crew_agent=seo_specialist
         )
-        
+
         # Content Editor Agent
         content_editor = Agent(
             role="Content Editor",
@@ -378,14 +413,12 @@ class ContentGenerationTemplate(WorkflowTemplate):
             assurance, fact-checking, and brand consistency. You excel at identifying 
             areas for improvement and ensuring content meets high standards.""",
             verbose=True,
-            allow_delegation=False
+            allow_delegation=False,
         )
         agents["content_editor"] = AgentWrapper(
-            name="ContentEditor",
-            role="Content Editor",
-            crew_agent=content_editor
+            name="ContentEditor", role="Content Editor", crew_agent=content_editor
         )
-        
+
         # Content Formatter Agent
         content_formatter = Agent(
             role="Content Formatter",
@@ -394,14 +427,12 @@ class ContentGenerationTemplate(WorkflowTemplate):
             content for various platforms and distribution channels. You understand 
             platform-specific requirements and optimization techniques.""",
             verbose=True,
-            allow_delegation=False
+            allow_delegation=False,
         )
         agents["content_formatter"] = AgentWrapper(
-            name="ContentFormatter",
-            role="Content Formatter",
-            crew_agent=content_formatter
+            name="ContentFormatter", role="Content Formatter", crew_agent=content_formatter
         )
-        
+
         # Content Manager Agent
         content_manager = Agent(
             role="Content Manager",
@@ -410,23 +441,21 @@ class ContentGenerationTemplate(WorkflowTemplate):
             production oversight and quality control. You ensure that all content meets 
             organizational standards and is ready for publication.""",
             verbose=True,
-            allow_delegation=True
+            allow_delegation=True,
         )
         agents["content_manager"] = AgentWrapper(
-            name="ContentManager",
-            role="Content Manager",
-            crew_agent=content_manager
+            name="ContentManager", role="Content Manager", crew_agent=content_manager
         )
-        
+
         logger.info(f"Created {len(agents)} agents for content generation workflow")
         return agents
-    
-    def _create_tasks(self, 
-                     params: Dict[str, Any], 
-                     agents: Dict[str, AgentWrapper]) -> Dict[str, TaskWrapper]:
+
+    def _create_tasks(
+        self, params: Dict[str, Any], agents: Dict[str, AgentWrapper]
+    ) -> Dict[str, TaskWrapper]:
         """Create tasks for the content generation workflow."""
         tasks = {}
-        
+
         # Content Planning Task
         tasks["content_planning"] = TaskWrapper(
             task_id="content_planning",
@@ -445,11 +474,11 @@ class ContentGenerationTemplate(WorkflowTemplate):
             Output: Comprehensive content plan with detailed outline and strategy.
             """,
             agent=agents["content_strategist"],
-            expected_output="Detailed content plan with clear outline, strategy, and key messages"
+            expected_output="Detailed content plan with clear outline, strategy, and key messages",
         )
-        
+
         # Research Gathering Task (conditional)
-        if params.get('include_research', True):
+        if params.get("include_research", True):
             tasks["research_gathering"] = TaskWrapper(
                 task_id="research_gathering",
                 description=f"""
@@ -465,9 +494,9 @@ class ContentGenerationTemplate(WorkflowTemplate):
                 Output: Comprehensive research findings with key insights and supporting data.
                 """,
                 agent=agents["content_researcher"],
-                expected_output="Well-organized research findings with relevant insights and credible sources"
+                expected_output="Well-organized research findings with relevant insights and credible sources",
             )
-        
+
         # Content Creation Task
         tasks["content_creation"] = TaskWrapper(
             task_id="content_creation",
@@ -486,11 +515,11 @@ class ContentGenerationTemplate(WorkflowTemplate):
             Output: Well-written draft content that engages the target audience.
             """,
             agent=agents["content_writer"],
-            expected_output="High-quality draft content that is engaging, well-structured, and audience-appropriate"
+            expected_output="High-quality draft content that is engaging, well-structured, and audience-appropriate",
         )
-        
+
         # SEO Optimization Task (conditional)
-        if params.get('seo_optimization', True):
+        if params.get("seo_optimization", True):
             tasks["seo_optimization"] = TaskWrapper(
                 task_id="seo_optimization",
                 description=f"""
@@ -507,9 +536,9 @@ class ContentGenerationTemplate(WorkflowTemplate):
                 Output: SEO-optimized content with keyword integration and recommendations.
                 """,
                 agent=agents["seo_specialist"],
-                expected_output="SEO-optimized content with improved discoverability and search ranking potential"
+                expected_output="SEO-optimized content with improved discoverability and search ranking potential",
             )
-        
+
         # Quality Review Task
         tasks["quality_review"] = TaskWrapper(
             task_id="quality_review",
@@ -527,11 +556,15 @@ class ContentGenerationTemplate(WorkflowTemplate):
             Output: Reviewed content with detailed feedback report and improvement recommendations.
             """,
             agent=agents["content_editor"],
-            expected_output="Quality-reviewed content with comprehensive feedback and improvement recommendations"
+            expected_output="Quality-reviewed content with comprehensive feedback and improvement recommendations",
         )
-        
+
         # Content Refinement Task
-        cta_text = f"Include call-to-action: {params['call_to_action']}" if params.get('call_to_action') else "No specific call-to-action required"
+        cta_text = (
+            f"Include call-to-action: {params['call_to_action']}"
+            if params.get("call_to_action")
+            else "No specific call-to-action required"
+        )
         tasks["content_refinement"] = TaskWrapper(
             task_id="content_refinement",
             description=f"""
@@ -548,9 +581,9 @@ class ContentGenerationTemplate(WorkflowTemplate):
             Output: Final refined content ready for formatting and publication.
             """,
             agent=agents["content_writer"],
-            expected_output="Polished, refined content that addresses all feedback and is ready for publication"
+            expected_output="Polished, refined content that addresses all feedback and is ready for publication",
         )
-        
+
         # Format Adaptation Task
         tasks["format_adaptation"] = TaskWrapper(
             task_id="format_adaptation",
@@ -568,9 +601,9 @@ class ContentGenerationTemplate(WorkflowTemplate):
             Output: Platform-optimized content versions ready for distribution.
             """,
             agent=agents["content_formatter"],
-            expected_output="Platform-optimized content formatted for all target distribution channels"
+            expected_output="Platform-optimized content formatted for all target distribution channels",
         )
-        
+
         # Final Approval Task
         tasks["final_approval"] = TaskWrapper(
             task_id="final_approval",
@@ -587,65 +620,68 @@ class ContentGenerationTemplate(WorkflowTemplate):
             Output: Approved content package ready for publication and distribution.
             """,
             agent=agents["content_manager"],
-            expected_output="Final approved content package with all materials ready for publication"
+            expected_output="Final approved content package with all materials ready for publication",
         )
-        
+
         logger.info(f"Created {len(tasks)} tasks for content generation workflow")
         return tasks
-    
-    def _configure_workflow_structure(self,
-                                    orchestrator: GraphOrchestrator,
-                                    params: Dict[str, Any],
-                                    agents: Dict[str, AgentWrapper],
-                                    tasks: Dict[str, TaskWrapper]):
+
+    def _configure_workflow_structure(
+        self,
+        orchestrator: GraphOrchestrator,
+        params: Dict[str, Any],
+        agents: Dict[str, AgentWrapper],
+        tasks: Dict[str, TaskWrapper],
+    ):
         """Configure the workflow structure and dependencies."""
-        
+
         # Set the entry point
         orchestrator.set_entry_point("content_planning")
-        
+
         # Build the workflow structure
         current_step = "content_planning"
-        
+
         # Add research if enabled
-        if params.get('include_research', True) and 'research_gathering' in tasks:
+        if params.get("include_research", True) and "research_gathering" in tasks:
             orchestrator.add_edge(current_step, "research_gathering")
             current_step = "research_gathering"
-        
+
         # Continue with content creation
         orchestrator.add_edge(current_step, "content_creation")
         current_step = "content_creation"
-        
+
         # Add SEO optimization if enabled
-        if params.get('seo_optimization', True) and 'seo_optimization' in tasks:
+        if params.get("seo_optimization", True) and "seo_optimization" in tasks:
             orchestrator.add_edge(current_step, "seo_optimization")
             current_step = "seo_optimization"
-        
+
         # Continue with review and refinement
         orchestrator.add_edge(current_step, "quality_review")
         orchestrator.add_edge("quality_review", "content_refinement")
         orchestrator.add_edge("content_refinement", "format_adaptation")
         orchestrator.add_edge("format_adaptation", "final_approval")
-        
+
         # Add review cycle logic
-        review_cycles = params.get('review_cycles', 2)
+        review_cycles = params.get("review_cycles", 2)
         if review_cycles > 1:
             orchestrator.add_conditional_edge(
                 "quality_review",
                 self._review_cycle_condition,
-                {"continue": "content_refinement", "revise": "content_creation"}
+                {"continue": "content_refinement", "revise": "content_creation"},
             )
-        
+
         # Add error handling
         for task_id in tasks.keys():
             orchestrator.add_error_handler(task_id, self._create_error_handler(task_id, params))
-        
+
         logger.info("Content generation workflow structure configured")
-    
+
     def _create_error_handler(self, task_id: str, params: Dict[str, Any]) -> callable:
         """Create error handler for specific task."""
+
         def error_handler(error, context):
             logger.error(f"Error in {task_id}: {error}")
-            
+
             # Retry logic for certain tasks
             if task_id in ["research_gathering", "seo_optimization"]:
                 retry_count = context.get("retry_count", 0)
@@ -653,29 +689,29 @@ class ContentGenerationTemplate(WorkflowTemplate):
                     context["retry_count"] = retry_count + 1
                     logger.info(f"Retrying {task_id} (attempt {retry_count + 1})")
                     return "retry"
-            
+
             # Skip optional steps if they fail
-            if task_id == "seo_optimization" and not params.get('seo_optimization', True):
+            if task_id == "seo_optimization" and not params.get("seo_optimization", True):
                 logger.warning("SEO optimization failed, continuing without optimization")
                 return "skip"
-            
+
             return "continue"
-        
+
         return error_handler
-    
+
     def _review_cycle_condition(self, state: Dict[str, Any]) -> str:
         """Determine if additional review cycles are needed."""
         feedback_report = state.get("feedback_report", {})
         cycle_count = state.get("review_cycle_count", 0)
         max_cycles = state.get("max_review_cycles", 2)
-        
+
         # Check if major revisions are needed
         major_issues = feedback_report.get("major_issues", 0)
-        
+
         # If no major issues or max cycles reached, continue
         if major_issues == 0 or cycle_count >= max_cycles:
             return "continue"
-        
+
         # Otherwise, request revision
         state["review_cycle_count"] = cycle_count + 1
         return "revise"

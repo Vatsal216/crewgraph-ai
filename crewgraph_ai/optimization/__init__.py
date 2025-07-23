@@ -20,12 +20,9 @@ Author: Vatsal216
 Created: 2025-07-23 06:03:54 UTC
 """
 
-from .workflow_optimizer import WorkflowOptimizer, OptimizationResult
+from .workflow_optimizer import OptimizationResult, WorkflowOptimizer
 
-__all__ = [
-    "WorkflowOptimizer",
-    "OptimizationResult"
-]
+__all__ = ["WorkflowOptimizer", "OptimizationResult"]
 
 __version__ = "1.0.0"
 __author__ = "Vatsal216"
