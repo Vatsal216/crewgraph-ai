@@ -1,6 +1,4 @@
 # CrewGraph AI CI/CD Pipeline
-# Author: Vatsal216 
-# Created: 2025-07-23 06:03:54 UTC
 
 name: CrewGraph AI CI/CD
 
@@ -100,10 +98,10 @@ jobs:
     - name: Push to Docker Hub
       if: github.event_name == 'release'
       run: |
-        docker tag crewgraph-ai:latest vatsal216/crewgraph-ai:latest
-        docker tag crewgraph-ai:latest vatsal216/crewgraph-ai:${{ github.event.release.tag_name }}
-        docker push vatsal216/crewgraph-ai:latest
-        docker push vatsal216/crewgraph-ai:${{ github.event.release.tag_name }}
+        docker tag crewgraph-ai:latest ${{ secrets.DOCKER_USERNAME }}/crewgraph-ai:latest
+        docker tag crewgraph-ai:latest ${{ secrets.DOCKER_USERNAME }}/crewgraph-ai:${{ github.event.release.tag_name }}
+        docker push ${{ secrets.DOCKER_USERNAME }}/crewgraph-ai:latest
+        docker push ${{ secrets.DOCKER_USERNAME }}/crewgraph-ai:${{ github.event.release.tag_name }}
 
   performance-test:
     name: Performance Testing

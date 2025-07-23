@@ -10,7 +10,13 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from crewai import Agent
+try:
+    from crewai import Agent
+    CREWAI_AVAILABLE = True
+except ImportError:
+    CREWAI_AVAILABLE = False
+    Agent = None
+
 from pydantic import BaseModel, Field
 
 from ..memory.base import BaseMemory
@@ -114,7 +120,7 @@ class AgentWrapper:
         self.verbose = verbose
         
         # If no crew_agent provided but we have role/goal/backstory, create one
-        if not self.crew_agent and (role or goal or backstory):
+        if not self.crew_agent and (role or goal or backstory) and CREWAI_AVAILABLE:
             try:
                 self.crew_agent = Agent(
                     role=role or f"{name} Agent",
@@ -127,6 +133,8 @@ class AgentWrapper:
                 logger.info(f"Created CrewAI agent for '{name}' with role '{role}'")
             except Exception as e:
                 logger.warning(f"Could not create CrewAI agent for '{name}': {e}")
+        elif not CREWAI_AVAILABLE:
+            logger.warning(f"CrewAI not available, agent '{name}' will use fallback execution")
         
         # Store tools
         self.tools = tools or []
@@ -298,6 +306,10 @@ class AgentWrapper:
         self, prompt: str, context: Dict[str, Any], tools: Optional[List[Any]] = None
     ) -> Any:
         """Execute using CrewAI agent."""
+        if not CREWAI_AVAILABLE:
+            logger.warning("CrewAI not available, falling back to default execution")
+            return self._execute_default(prompt, context)
+            
         try:
             from crewai import Task as CrewTask
             

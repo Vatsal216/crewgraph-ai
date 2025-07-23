@@ -13,12 +13,12 @@ with open(os.path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 setup(
     name="crewgraph-ai",
     version="1.0.0",
-    author="Vatsal216",
-    author_email="vatsal216@example.com",
+    author="CrewGraph AI Team",
+    author_email="team@crewgraph-ai.com",
     description="Production-ready library combining CrewAI and LangGraph for advanced agent orchestration",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/Vatsal216/crewgraph-ai",
+    url="https://github.com/crewgraph/crewgraph-ai",
     packages=find_packages(exclude=["tests*", "examples*"]),
     classifiers=[
         "Development Status :: 5 - Production/Stable",

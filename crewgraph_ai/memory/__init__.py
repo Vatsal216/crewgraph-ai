@@ -1,15 +1,13 @@
 """
 CrewGraph AI Memory Backend System
 Comprehensive memory management with multiple backend support
-
-Author: Vatsal216
-Created: 2025-07-22 12:01:02 UTC
 """
 
 from .base import BaseMemory, MemoryOperation
 from .config import MemoryConfig, MemoryType
 from .dict_memory import DictMemory
 from .utils import MemorySerializer, MemoryUtils, create_memory
+from ..config import get_current_user, get_formatted_timestamp
 
 # Optional imports (gracefully handle missing dependencies)
 try:
@@ -108,10 +106,8 @@ if SQL_AVAILABLE:
 
 # Version info
 __version__ = "1.0.0"
-__author__ = "Vatsal216"
-__created__ = "2025-07-22 12:01:02"
 
 print(f"🧠 CrewGraph AI Memory System v{__version__} loaded")
-print(f"👤 Created by: {__author__}")
-print(f"⏰ Timestamp: {__created__}")
+print(f"👤 Created by: {get_current_user()}")
+print(f"⏰ Timestamp: {get_formatted_timestamp()}")
 print(f"🔧 Available backends: Dict, Redis, FAISS, SQL")

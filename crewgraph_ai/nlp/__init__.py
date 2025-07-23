@@ -23,9 +23,6 @@ Features:
     - Code generation for multiple languages
     - Context-aware task extraction
     - Bidirectional natural language conversion
-
-Author: Vatsal216
-Created: 2025-07-23 10:33:54 UTC
 """
 
 from .builder import ConversationalWorkflowBuilder
@@ -64,11 +61,16 @@ __all__ = [
 ]
 
 __version__ = "1.0.0"
-__author__ = "Vatsal216"
-__created__ = "2025-07-23 10:33:54 UTC"
+
+# Import configuration for dynamic user
+import sys
+import os
+# Add parent directory to get config
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+from config import get_current_user, get_formatted_timestamp
 
 print(f"🗣️ CrewGraph AI NLP Module v{__version__} loaded")
 print(f"📝 Natural language workflow building enabled")
 print(f"🤖 AI-powered workflow conversion and generation")
-print(f"👤 Created by: {__author__}")
-print(f"⏰ Updated: {__created__}")
+print(f"👤 Created by: {get_current_user()}")
+print(f"⏰ Updated: {get_formatted_timestamp()}")

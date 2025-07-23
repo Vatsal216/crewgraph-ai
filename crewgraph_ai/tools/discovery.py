@@ -20,7 +20,12 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
-from crewai.tools import BaseTool as CrewAIBaseTool
+try:
+    from crewai.tools import BaseTool as CrewAIBaseTool
+    CREWAI_TOOLS_AVAILABLE = True
+except ImportError:
+    CrewAIBaseTool = None
+    CREWAI_TOOLS_AVAILABLE = False
 
 from ..utils.exceptions import ToolError
 from ..utils.logging import get_logger

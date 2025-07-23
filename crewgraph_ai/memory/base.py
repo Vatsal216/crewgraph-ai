@@ -1,9 +1,6 @@
 """
 Base Memory Interface for CrewGraph AI
 Defines the contract for all memory backends
-
-Author: Vatsal216
-Created: 2025-07-22 12:01:02 UTC
 """
 
 import json
@@ -16,6 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
+from ..config import get_current_user, get_formatted_timestamp
 from ..utils.exceptions import MemoryError
 from ..utils.logging import get_logger
 from ..utils.metrics import get_metrics_collector
@@ -49,8 +47,15 @@ class MemoryStats:
     average_operation_time: float = 0.0
     last_operation_time: float = 0.0
     backend_type: str = ""
-    created_at: str = "2025-07-22 12:01:02"
-    created_by: str = "Vatsal216"
+    created_at: str = ""
+    created_by: str = ""
+    
+    def __post_init__(self):
+        """Initialize dynamic fields after creation"""
+        if not self.created_at:
+            self.created_at = get_formatted_timestamp()
+        if not self.created_by:
+            self.created_by = get_current_user()
 
 
 class BaseMemory(ABC):
@@ -59,9 +64,6 @@ class BaseMemory(ABC):
 
     This class defines the standard interface that all memory backends
     must implement, ensuring consistency across different storage systems.
-
-    Created by: Vatsal216
-    Date: 2025-07-22 12:01:02 UTC
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
@@ -77,7 +79,7 @@ class BaseMemory(ABC):
         self._connected = False
 
         logger.info(f"Initializing {self.__class__.__name__} memory backend")
-        logger.info(f"User: Vatsal216, Time: 2025-07-22 12:01:02")
+        logger.info(f"User: {get_current_user()}, Time: {get_formatted_timestamp()}")
 
     def _record_operation(self, operation: MemoryOperation, success: bool, duration: float):
         """Record operation metrics and statistics"""
@@ -104,7 +106,7 @@ class BaseMemory(ABC):
             labels={
                 "backend": self.__class__.__name__,
                 "success": str(success),
-                "user": "Vatsal216",
+                "user": get_current_user(),
             },
         )
 
@@ -114,7 +116,7 @@ class BaseMemory(ABC):
                 "backend": self.__class__.__name__,
                 "operation": operation.value,
                 "success": str(success),
-                "user": "Vatsal216",
+                "user": get_current_user(),
             },
         )
 
@@ -338,8 +340,8 @@ class BaseMemory(ABC):
                     "delete": delete_success,
                 },
                 "stats": self.get_stats().__dict__,
-                "timestamp": "2025-07-22 12:01:02",
-                "checked_by": "Vatsal216",
+                "timestamp": get_formatted_timestamp(),
+                "checked_by": get_current_user(),
             }
 
         except Exception as e:
@@ -348,8 +350,8 @@ class BaseMemory(ABC):
                 "backend_type": self.__class__.__name__,
                 "connected": self._connected,
                 "error": str(e),
-                "timestamp": "2025-07-22 12:01:02",
-                "checked_by": "Vatsal216",
+                "timestamp": get_formatted_timestamp(),
+                "checked_by": get_current_user(),
             }
 
     # ============= MESSAGE HANDLING METHODS =============
