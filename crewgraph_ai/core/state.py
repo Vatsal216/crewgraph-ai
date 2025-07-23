@@ -556,6 +556,26 @@ class StateManager:
         """
         return self.keys()
 
+    def import_state(self, data: Dict[str, Any]) -> bool:
+        """
+        Import state data from dictionary.
+        
+        Args:
+            data: Dictionary of state data to import
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            with self._lock:
+                for key, value in data.items():
+                    self.set(key, value)
+            logger.info(f"Imported {len(data)} state values")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to import state: {e}")
+            return False
+
     def create_snapshot(self, description: str = "") -> str:
         """
         Create state snapshot.
@@ -821,6 +841,31 @@ class SharedState:
     def from_dict(self, data: Dict[str, Any]) -> bool:
         """Import state from dictionary"""
         return self._state_manager.import_state(data)
+
+    def get_context(self, key: str = None) -> Dict[str, Any]:
+        """
+        Get context information for state access.
+        
+        Args:
+            key: Optional key to get context for specific item
+            
+        Returns:
+            Dict[str, Any]: Context information
+        """
+        if key:
+            return {
+                "key": key,
+                "value": self.get(key),
+                "exists": self.exists(key),
+                "workflow": self.workflow_id
+            }
+        else:
+            return {
+                "workflow": self.workflow_id,
+                "keys": self.keys(),
+                "size": len(self.keys()),
+                "memory_backend": str(type(self._memory).__name__)
+            }
 
     def save(self, filename: str) -> bool:
         """Save state to file"""
