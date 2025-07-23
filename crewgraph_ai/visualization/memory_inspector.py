@@ -24,6 +24,12 @@ try:
     import matplotlib.pyplot as plt
     VISUALIZATION_AVAILABLE = True
 except ImportError:
+    # Create mock objects when dependencies are not available
+    go = None
+    pyo = None
+    make_subplots = None
+    pd = None
+    plt = None
     VISUALIZATION_AVAILABLE = False
 
 from ..memory.base import BaseMemory

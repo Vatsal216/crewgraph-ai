@@ -99,6 +99,9 @@ from .types import (
 from .crewgraph import CrewGraph, CrewGraphConfig
 from .utils.metrics import get_metrics_collector, MetricsCollector, PerformanceMonitor
 
+# Communication imports
+from .communication import AgentCommunicationHub, Message, MessageType, MessagePriority, Channel, CommunicationProtocol
+
 # Visualization imports (optional)
 try:
     from .visualization import WorkflowVisualizer, ExecutionTracer, MemoryInspector, DebugTools
@@ -134,6 +137,14 @@ __all__ = [
     # Planning classes
     "DynamicPlanner",
     "PlanningStrategy",
+    
+    # Communication classes
+    "AgentCommunicationHub",
+    "Message",
+    "MessageType",
+    "MessagePriority", 
+    "Channel",
+    "CommunicationProtocol",
     
     # Utilities
     "CrewGraphError",

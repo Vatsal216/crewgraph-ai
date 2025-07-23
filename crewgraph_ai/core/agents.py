@@ -96,6 +96,9 @@ class AgentWrapper:
         self._on_task_complete: Optional[Callable] = None
         self._on_error: Optional[Callable] = None
         
+        # Communication
+        self._message_handler: Optional[Callable] = None
+        
         logger.info(f"Agent '{name}' initialized with ID: {self.id}")
     
     def set_callbacks(self,
@@ -335,6 +338,38 @@ class AgentWrapper:
             },
             'queue_size': self.get_queue_size()
         }
+    
+    # Communication Protocol Implementation
+    def receive_message(self, message: Any) -> None:
+        """
+        Handle incoming message from communication hub.
+        
+        Args:
+            message: Message object from communication system
+        """
+        try:
+            # Store message for later processing or handle immediately
+            if hasattr(message, 'content'):
+                logger.info(f"Agent {self.name} received message: {message.content[:100]}...")
+                
+                # Trigger message handler if available
+                if hasattr(self, '_message_handler') and self._message_handler:
+                    self._message_handler(message)
+                else:
+                    # Default handling - just log for now
+                    logger.debug(f"Agent {self.name} processing message from {message.sender_id}")
+                    
+        except Exception as e:
+            logger.error(f"Error processing message in agent {self.name}: {e}")
+    
+    def get_agent_id(self) -> str:
+        """Get agent identifier for communication."""
+        return self.id
+    
+    def set_message_handler(self, handler: Callable[[Any], None]):
+        """Set custom message handler for this agent."""
+        self._message_handler = handler
+        logger.info(f"Message handler set for agent {self.name}")
     
     def __repr__(self) -> str:
         return (f"AgentWrapper(name='{self.name}', role='{self.role}', "
