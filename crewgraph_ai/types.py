@@ -55,6 +55,7 @@ WorkflowConfig: TypeAlias = Dict[str, Any]
 NodeId: TypeAlias = str
 WorkflowId: TypeAlias = str
 ExecutionId: TypeAlias = str
+TaskId: TypeAlias = str
 Timestamp: TypeAlias = float
 
 # Status literals
@@ -401,6 +402,7 @@ __all__ = [
     "NodeId",
     "WorkflowId",
     "ExecutionId",
+    "TaskId",
     "Timestamp",
     # Status literals
     "TaskStatus",
