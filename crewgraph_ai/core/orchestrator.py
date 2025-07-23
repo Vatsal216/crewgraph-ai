@@ -920,6 +920,25 @@ class GraphOrchestrator:
         """Export detailed error report"""
         return self.error_recovery.export_error_report(format)
 
+    # Additional methods expected by tests
+    def register_agent(self, agent: Any, agent_id: str = None) -> str:
+        """Register an agent with the orchestrator"""
+        if agent_id is None:
+            agent_id = f"agent_{len(self._nodes) + 1}"
+        
+        # Store agent reference
+        if not hasattr(self, '_agents'):
+            self._agents = {}
+        self._agents[agent_id] = agent
+        
+        logger.info(f"Registered agent: {agent_id}")
+        return agent_id
+
+    @property
+    def state(self) -> Optional[SharedState]:
+        """Get the shared state instance"""
+        return getattr(self, '_state', None)
+
     def shutdown(self):
         """Shutdown orchestrator and cleanup resources."""
         if self._executor:
@@ -939,10 +958,11 @@ class WorkflowBuilder:
     Fluent interface for building complex workflows with LangGraph integration.
     """
 
-    def __init__(self, name: str = "workflow"):
+    def __init__(self, name: str = "workflow", state: Optional[Any] = None):
         """Initialize workflow builder."""
         self.orchestrator = GraphOrchestrator(name)
         self._current_node: Optional[str] = None
+        self.state = state
 
     def add_node(self, name: str, func: Callable, metadata: Optional[Dict] = None):
         """Add node and return self for chaining."""

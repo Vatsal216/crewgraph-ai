@@ -702,6 +702,34 @@ class TaskWrapper:
             ),
         }
 
+    # Additional methods expected by tests
+    def add_dependencies(self, dependencies: List[str]) -> None:
+        """Add task dependencies"""
+        if isinstance(dependencies, str):
+            dependencies = [dependencies]
+        self.dependencies.extend(dependencies)
+
+    def set_status(self, status: TaskStatus) -> None:
+        """Set task status"""
+        self.status = status
+
+    def set_result(self, result: Any) -> None:
+        """Set task result"""
+        task_result = TaskResult(
+            task_id=self.task_id,
+            task_name=self.name,
+            success=True,
+            result=result,
+            execution_time=0.0
+        )
+        self.last_result = task_result
+
+    def set_metadata(self, metadata: Dict[str, Any]) -> None:
+        """Set task metadata"""
+        if not hasattr(self, 'metadata'):
+            self.metadata = {}
+        self.metadata.update(metadata)
+
     def __repr__(self) -> str:
         return (
             f"TaskWrapper(name='{self.name}', status={self.status.value}, "
@@ -714,27 +742,30 @@ class TaskChain:
     Manages sequential execution of multiple tasks with dependency resolution.
     """
 
-    def __init__(self, tasks: List[TaskWrapper], name: Optional[str] = None):
+    def __init__(self, tasks: List[TaskWrapper] = None, name: Optional[str] = None, state: Optional[Any] = None):
         """
         Initialize task chain.
 
         Args:
             tasks: List of tasks in execution order
             name: Chain identifier
+            state: State manager (for compatibility)
         """
         self.name = name or f"chain_{uuid.uuid4().hex[:8]}"
-        self.tasks = tasks
+        self.tasks = tasks or []
+        self.state = state
         self.current_index = 0
         self.results: List[TaskResult] = []
         self.status = TaskStatus.PENDING
 
         # Set up dependencies automatically
-        for i, task in enumerate(tasks[1:], 1):
-            prev_task = tasks[i - 1]
-            if prev_task.name not in task.dependencies:
-                task.dependencies.append(prev_task.name)
+        if len(self.tasks) > 1:
+            for i, task in enumerate(self.tasks[1:], 1):
+                prev_task = self.tasks[i - 1]
+                if prev_task.name not in task.dependencies:
+                    task.dependencies.append(prev_task.name)
 
-        logger.info(f"TaskChain '{self.name}' created with {len(tasks)} tasks")
+        logger.info(f"TaskChain '{self.name}' created with {len(self.tasks)} tasks")
 
     def execute(self, context: Optional[Dict[str, Any]] = None) -> List[TaskResult]:
         """Execute all tasks in sequence."""
