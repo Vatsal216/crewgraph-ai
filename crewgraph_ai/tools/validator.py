@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, Callable, Union, Tuple, Set
 from dataclasses import dataclass, field
 from enum import Enum
 import threading
-
+import json
 from crewai.tools import BaseTool as CrewAIBaseTool
 from ..utils.logging import get_logger
 from ..utils.metrics import get_metrics_collector
