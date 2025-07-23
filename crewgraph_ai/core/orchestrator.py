@@ -11,11 +11,21 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
-# from langgraph.prebuilt import ToolNode
+# Optional LangGraph imports
+try:
+    from langgraph.checkpoint.memory import MemorySaver
+    from langgraph.graph import END, START, StateGraph
+    from langgraph.graph.message import MessageGraph
+    LANGGRAPH_AVAILABLE = True
+except ImportError:
+    MemorySaver = None
+    END = "END"
+    START = "START"
+    StateGraph = None
+    MessageGraph = None
+    LANGGRAPH_AVAILABLE = False
+
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import END, START, StateGraph
-from langgraph.graph.message import MessageGraph
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
 
@@ -124,12 +134,20 @@ class GraphOrchestrator:
         self.enable_checkpoints: bool = enable_checkpoints
         self.checkpoint_interval: int = checkpoint_interval
 
-        # LangGraph integration
-        self._state_graph: Optional[StateGraph] = None
-        self._message_graph: Optional[MessageGraph] = None  # ← New MessageGraph support
-        self._compiled_graph: Optional[Any] = None
-        self._compiled_message_graph: Optional[Any] = None  # ← Compiled MessageGraph
-        self._checkpointer = MemorySaver() if enable_checkpoints else None
+        # LangGraph integration (only if available)
+        if LANGGRAPH_AVAILABLE:
+            self._state_graph: Optional[StateGraph] = None
+            self._message_graph: Optional[MessageGraph] = None
+            self._compiled_graph: Optional[Any] = None
+            self._compiled_message_graph: Optional[Any] = None
+            self._checkpointer = MemorySaver() if enable_checkpoints else None
+        else:
+            self._state_graph = None
+            self._message_graph = None
+            self._compiled_graph = None
+            self._compiled_message_graph = None
+            self._checkpointer = None
+            
         self._workflow_mode: str = "state"  # "state" or "message"
 
         # Workflow components

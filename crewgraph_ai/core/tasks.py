@@ -10,7 +10,13 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from crewai import Task as CrewTask
+try:
+    from crewai import Task as CrewTask
+    CREWAI_AVAILABLE = True
+except ImportError:
+    CrewTask = None
+    CREWAI_AVAILABLE = False
+
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from pydantic import BaseModel, Field
 
