@@ -4,7 +4,8 @@ Demonstrates basic usage with CrewAI agents and LangGraph workflows
 """
 
 import asyncio
-from crewai import Agent, Task, Tool
+from crewai import Agent, Task
+from crewai.tools import BaseTool
 from crewgraph_ai import CrewGraph, CrewGraphConfig
 from crewgraph_ai.memory import DictMemory
 from crewgraph_ai.utils import setup_logging, get_logger
@@ -13,15 +14,23 @@ from crewgraph_ai.utils import setup_logging, get_logger
 setup_logging()
 logger = get_logger(__name__)
 
-def search_web(query: str) -> str:
-    """Mock web search tool"""
-    return f"Search results for: {query}"
+class SearchTool(BaseTool):
+    name: str = "search"
+    description: str = "Search the web for information"
+    
+    def _run(self, query: str) -> str:
+        """Mock web search tool"""
+        return f"Search results for: {query}"
 
-def write_file(content: str, filename: str) -> str:
-    """Mock file writing tool"""
-    with open(filename, 'w') as f:
-        f.write(content)
-    return f"Content written to {filename}"
+class WriteTool(BaseTool):
+    name: str = "write_file"
+    description: str = "Write content to a file"
+    
+    def _run(self, content: str, filename: str = "output.txt") -> str:
+        """Mock file writing tool"""
+        with open(filename, 'w') as f:
+            f.write(content)
+        return f"Content written to {filename}"
 
 def main():
     """Quick start example"""
@@ -32,7 +41,7 @@ def main():
         role='Research Specialist',
         goal='Conduct thorough research on given topics',
         backstory='Expert researcher with 10 years of experience',
-        tools=[Tool(name="search", func=search_web, description="Search the web")],
+        tools=[SearchTool()],
         verbose=True
     )
     
@@ -40,7 +49,7 @@ def main():
         role='Content Writer', 
         goal='Create engaging content based on research',
         backstory='Professional writer specializing in technical content',
-        tools=[Tool(name="write_file", func=write_file, description="Write content to file")],
+        tools=[WriteTool()],
         verbose=True
     )
     

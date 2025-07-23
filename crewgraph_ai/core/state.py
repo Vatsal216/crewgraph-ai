@@ -517,6 +517,45 @@ class StateManager:
             logger.error(f"Failed to clear state: {e}")
             return False
 
+    def bulk_set(self, data: Dict[str, Any]) -> bool:
+        """
+        Set multiple state values at once.
+        
+        Args:
+            data: Dictionary of key-value pairs to set
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            with self._lock:
+                for key, value in data.items():
+                    self.set(key, value)
+            logger.info(f"Bulk set {len(data)} state values")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to bulk set state: {e}")
+            return False
+
+    def export_state(self) -> Dict[str, Any]:
+        """
+        Export all state data as a dictionary.
+        
+        Returns:
+            Dict[str, Any]: Complete state dictionary
+        """
+        with self._lock:
+            return self._state.copy()
+
+    def list_keys(self) -> List[str]:
+        """
+        List all state keys (alias for keys method).
+        
+        Returns:
+            List[str]: List of all state keys
+        """
+        return self.keys()
+
     def create_snapshot(self, description: str = "") -> str:
         """
         Create state snapshot.

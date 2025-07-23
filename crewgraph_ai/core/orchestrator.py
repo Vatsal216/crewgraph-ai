@@ -258,6 +258,11 @@ class GraphOrchestrator:
         if not self._state_graph:
             self.create_state_graph()
 
+        # Check if node already exists
+        if name in self._nodes:
+            logger.debug(f"Node '{name}' already exists, skipping addition")
+            return
+
         # Wrap function for enhanced monitoring
         wrapped_func = self._wrap_node_function(name, func)
 
@@ -392,6 +397,15 @@ class GraphOrchestrator:
             current_task = chain.tasks[i]
             next_task = chain.tasks[i + 1]
             self.add_edge(current_task.name, next_task.name)
+
+        # Connect first task to START (entry point)
+        if chain.tasks:
+            first_task = chain.tasks[0]
+            if hasattr(self._state_graph, 'set_entry_point'):
+                self._state_graph.set_entry_point(first_task.name)
+            else:
+                from langgraph.graph import START
+                self._state_graph.add_edge(START, first_task.name)
 
         logger.info(f"TaskChain '{chain.name}' added with {len(chain.tasks)} sequential nodes")
 
