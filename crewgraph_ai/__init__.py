@@ -86,7 +86,8 @@ from .communication import (
 
 # Main orchestration class for easy usage
 from .crewgraph import CrewGraph, CrewGraphConfig
-from .config import CrewGraphSettings, get_settings, configure, quick_setup
+# Skip problematic imports for now - will be fixed in integration
+# from .config import CrewGraphSettings, get_settings, configure, quick_setup
 
 # Intelligence imports
 from .intelligence import (
@@ -223,10 +224,10 @@ except ImportError:
 
 __all__ = [
     # Configuration
-    "CrewGraphSettings",
-    "get_settings", 
-    "configure",
-    "quick_setup",
+    # "CrewGraphSettings",
+    # "get_settings", 
+    # "configure",
+    # "quick_setup",
     # Core classes
     "CrewGraph",
     "AgentWrapper",
