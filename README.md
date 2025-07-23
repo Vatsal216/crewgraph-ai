@@ -1,14 +1,53 @@
-# CrewGraph AI - Production-Ready AI Workflow Orchestration
+# CrewGraph AI - Enterprise-Ready AI Workflow Orchestration
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![GitHub Stars](https://img.shields.io/github/stars/Vatsal216/crewgraph-ai?style=social)](https://github.com/Vatsal216/crewgraph-ai)
+[![Enterprise Ready](https://img.shields.io/badge/Enterprise-Ready-green.svg)](https://github.com/Vatsal216/crewgraph-ai)
 
-**CrewGraph AI** is a production-ready Python library that combines the power of **CrewAI** and **LangGraph** to provide advanced AI workflow orchestration with enterprise-grade features.
+**CrewGraph AI** is an enterprise-ready Python library that combines the power of **CrewAI** and **LangGraph** to provide advanced AI workflow orchestration with production-grade features, intelligent flow selection, and comprehensive enterprise capabilities.
 
 *Created by: Vatsal216*  
-*Last Updated: 2025-07-23 06:14:25*
+*Last Updated: 2025-07-23 19:23:00*
+
+## 🚀 **Enterprise Features (NEW!)**
+
+### 🏢 **Enterprise Configuration Management**
+- **Centralized API Key Management** - Secure, validated configuration for all LLM providers
+- **Environment-Based Loading** - Development, staging, production configurations
+- **Thread-Safe Operations** - Enterprise-grade thread safety with proper locking
+- **Validation & Templates** - Comprehensive validation with auto-generated templates
+
+### 🤖 **Intelligent Flow Selection Agent**
+- **AI/ML vs Traditional Analysis** - Intelligent recommendations based on requirements
+- **Interactive Questionnaire** - Guided workflow selection with detailed reasoning
+- **Industry-Specific Recommendations** - Tailored for finance, healthcare, technology, etc.
+- **Cost & Time Estimation** - Detailed setup time and cost projections
+
+### 🔄 **Multi-Provider LLM Management**
+- **Universal Provider Support** - OpenAI, Anthropic, Azure, Google, Cohere, HuggingFace
+- **Rate Limiting & Retry Logic** - Token bucket rate limiting with exponential backoff
+- **Automatic Failover** - Intelligent provider switching with health monitoring
+- **Cost Optimization** - Usage tracking, cost estimation, and optimization recommendations
+
+### 📈 **Auto-Scaling System**
+- **Resource-Based Scaling** - CPU, memory, queue depth, agent utilization monitoring
+- **Custom Scaling Rules** - Configurable thresholds and scaling strategies
+- **Cooldown Management** - Prevents oscillation with intelligent cooldown periods
+- **Performance Analytics** - Comprehensive scaling metrics and recommendations
+
+### 💾 **Distributed Memory Backend**
+- **Multi-Backend Support** - Redis, FAISS, SQL, Dict with automatic failover
+- **Health Monitoring** - Real-time backend health with automatic recovery
+- **Replication & Consistency** - Configurable replication with consistency guarantees
+- **Graceful Degradation** - Continues operation when backends fail
+
+### 🔒 **Enterprise Security & Compliance**
+- **Enhanced Error Handling** - Proper exception handling with detailed logging
+- **Encryption Support** - Data encryption with secure key management
+- **Audit Logging** - Comprehensive audit trails for compliance requirements
+- **JWT Authentication** - Enterprise-grade authentication and authorization
 
 
 ## 🎯 **What is CrewGraph AI?**
@@ -50,6 +89,41 @@ pip install crewgraph-ai[full]
 
 # Development installation
 pip install crewgraph-ai[dev]
+```
+
+### Enterprise Quick Start
+
+```python
+# 1. Enterprise Configuration
+from crewgraph_ai.config import get_enterprise_config, configure_enterprise
+
+config = get_enterprise_config()
+configure_enterprise(config)
+
+# 2. Interactive Flow Selection
+from crewgraph_ai.agents import get_flow_selector, UserRequirements, IndustryDomain
+
+requirements = UserRequirements(
+    use_case="Customer support automation",
+    industry=IndustryDomain.TECHNOLOGY,
+    team_size=10,
+    expected_volume=5000,
+    budget_tier="medium"
+)
+
+selector = get_flow_selector()
+recommendation = await selector.analyze_requirements(requirements)
+print(f"Recommended: {recommendation.workflow_type.value}")
+
+# 3. Auto-Scaling Setup
+from crewgraph_ai.scaling import start_auto_scaling
+await start_auto_scaling()
+
+# 4. Multi-Provider LLM
+from crewgraph_ai.providers import chat_completion
+response = await chat_completion([
+    {"role": "user", "content": "Hello!"}
+], provider="openai")  # Auto-failover to other providers
 ```
 
 ### Development Setup
