@@ -102,6 +102,12 @@ from .utils.metrics import get_metrics_collector, MetricsCollector, PerformanceM
 # Communication imports
 from .communication import AgentCommunicationHub, Message, MessageType, MessagePriority, Channel, CommunicationProtocol
 
+# Templates imports
+from .templates import (
+    WorkflowTemplate, TemplateRegistry, TemplateCategory, TemplateBuilder,
+    DataPipelineTemplate, ResearchWorkflowTemplate, ContentGenerationTemplate
+)
+
 # Visualization imports (optional)
 try:
     from .visualization import WorkflowVisualizer, ExecutionTracer, MemoryInspector, DebugTools
@@ -145,6 +151,15 @@ __all__ = [
     "MessagePriority", 
     "Channel",
     "CommunicationProtocol",
+    
+    # Template classes
+    "WorkflowTemplate",
+    "TemplateRegistry",
+    "TemplateCategory", 
+    "TemplateBuilder",
+    "DataPipelineTemplate",
+    "ResearchWorkflowTemplate",
+    "ContentGenerationTemplate",
     
     # Utilities
     "CrewGraphError",
