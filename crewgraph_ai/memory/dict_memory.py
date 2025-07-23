@@ -40,7 +40,9 @@ class DictMemory(BaseMemory):
                  persistent: bool = False,
                  persistence_file: Optional[str] = None,
                  auto_save: bool = False,
-                 auto_save_interval: int = 60):
+                 auto_save_interval: int = 60,
+                 max_size: Optional[int] = None,
+                 **kwargs):
         """
         Initialize dictionary memory backend.
         
@@ -50,6 +52,8 @@ class DictMemory(BaseMemory):
             persistence_file: File path for persistence
             auto_save: Enable automatic saving
             auto_save_interval: Auto-save interval in seconds
+            max_size: Maximum number of items (optional)
+            **kwargs: Additional keyword arguments (for compatibility)
         """
         super().__init__(config)
         
@@ -57,6 +61,7 @@ class DictMemory(BaseMemory):
         self.persistence_file = persistence_file or "crewgraph_memory.json"
         self.auto_save = auto_save
         self.auto_save_interval = auto_save_interval
+        self.max_size = max_size
         
         # Core storage
         self._storage: Dict[str, Any] = {}
@@ -64,7 +69,7 @@ class DictMemory(BaseMemory):
         self._cleanup_thread: Optional[threading.Thread] = None
         self._shutdown = threading.Event()
         
-        logger.info(f"DictMemory initialized - persistent={persistent}, auto_save={auto_save}")
+        logger.info(f"DictMemory initialized - persistent={persistent}, auto_save={auto_save}, max_size={max_size}")
         
     def connect(self) -> None:
         """Connect to memory backend (load from file if persistent)"""

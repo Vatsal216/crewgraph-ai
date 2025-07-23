@@ -9,7 +9,7 @@ Created: 2025-07-22 12:01:02 UTC
 from .base import BaseMemory, MemoryOperation
 from .dict_memory import DictMemory
 from .config import MemoryConfig, MemoryType
-from .utils import MemoryUtils, MemorySerializer
+from .utils import MemoryUtils, MemorySerializer, create_memory
 
 # Optional imports (gracefully handle missing dependencies)
 try:
@@ -90,8 +90,10 @@ __all__ = [
     # Utilities
     "MemoryUtils",
     "MemorySerializer",
+
     
     # Factory function
+
     "create_memory",
 ]
 
