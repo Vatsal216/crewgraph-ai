@@ -114,16 +114,49 @@ from .security import (
     AuditLogger, AuditEvent, EncryptionManager, CryptoConfig
 )
 
-# Visualization imports (optional)
+# Intelligence imports (AI-driven optimization)
 try:
-    from .visualization import WorkflowVisualizer, ExecutionTracer, MemoryInspector, DebugTools
-    VISUALIZATION_AVAILABLE = True
+    from .intelligence import (
+        PerformancePredictor, WorkflowMetrics, ResourceOptimizer, OptimizationResult,
+        AdaptivePlanner, PlanningRecommendation, PatternAnalyzer, WorkflowPattern
+    )
+    INTELLIGENCE_AVAILABLE = True
 except ImportError:
-    WorkflowVisualizer = None
-    ExecutionTracer = None
-    MemoryInspector = None
-    DebugTools = None
-    VISUALIZATION_AVAILABLE = False
+    PerformancePredictor = WorkflowMetrics = ResourceOptimizer = OptimizationResult = None
+    AdaptivePlanner = PlanningRecommendation = PatternAnalyzer = WorkflowPattern = None
+    INTELLIGENCE_AVAILABLE = False
+
+# NLP imports (Natural Language Processing)
+try:
+    from .nlp import (
+        WorkflowParser, ParsedWorkflow, IntentClassifier, WorkflowIntent,
+        TaskExtractor, ExtractedTask, DocumentationGenerator, WorkflowDocumentation
+    )
+    NLP_AVAILABLE = True
+except ImportError:
+    WorkflowParser = ParsedWorkflow = IntentClassifier = WorkflowIntent = None
+    TaskExtractor = ExtractedTask = DocumentationGenerator = WorkflowDocumentation = None
+    NLP_AVAILABLE = False
+
+# Analytics imports (Advanced Analytics & Visualization)
+try:
+    from .analytics import (
+        PerformanceDashboard, DashboardConfig, WorkflowAnalyzer, AnalysisReport
+    )
+    ANALYTICS_AVAILABLE = True
+except ImportError:
+    PerformanceDashboard = DashboardConfig = WorkflowAnalyzer = AnalysisReport = None
+    ANALYTICS_AVAILABLE = False
+
+# Optimization imports (Performance Optimization)
+try:
+    from .optimization import (
+        WorkflowOptimizer, ResourceScheduler, PerformanceTuner
+    )
+    OPTIMIZATION_AVAILABLE = True
+except ImportError:
+    WorkflowOptimizer = ResourceScheduler = PerformanceTuner = None
+    OPTIMIZATION_AVAILABLE = False
 
 __all__ = [
     # Core classes
@@ -201,9 +234,31 @@ if RedisMemory:
 if FAISSMemory:
     __all__.append("FAISSMemory")
 
-# Add visualization classes to __all__ if available
-if VISUALIZATION_AVAILABLE:
-    __all__.extend(["WorkflowVisualizer", "ExecutionTracer", "MemoryInspector", "DebugTools"])
+# Add intelligence classes to __all__ if available
+if INTELLIGENCE_AVAILABLE:
+    __all__.extend([
+        "PerformancePredictor", "WorkflowMetrics", "ResourceOptimizer", "OptimizationResult",
+        "AdaptivePlanner", "PlanningRecommendation", "PatternAnalyzer", "WorkflowPattern"
+    ])
+
+# Add NLP classes to __all__ if available
+if NLP_AVAILABLE:
+    __all__.extend([
+        "WorkflowParser", "ParsedWorkflow", "IntentClassifier", "WorkflowIntent",
+        "TaskExtractor", "ExtractedTask", "DocumentationGenerator", "WorkflowDocumentation"
+    ])
+
+# Add analytics classes to __all__ if available
+if ANALYTICS_AVAILABLE:
+    __all__.extend([
+        "PerformanceDashboard", "DashboardConfig", "WorkflowAnalyzer", "AnalysisReport"
+    ])
+
+# Add optimization classes to __all__ if available
+if OPTIMIZATION_AVAILABLE:
+    __all__.extend([
+        "WorkflowOptimizer"
+    ])
 
 # Setup default logging
 setup_logging()
