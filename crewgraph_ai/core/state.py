@@ -760,6 +760,36 @@ class StateManager:
         """Clear all state data (alias for clear)"""
         return self.clear()
 
+    # Additional methods expected by tests
+    def get_state(self, context: str = "default") -> Dict[str, Any]:
+        """Get state for a specific context"""
+        if context == "default":
+            return self._state.copy()
+        else:
+            return self._state.get(f"context:{context}", {})
+
+    def switch_context(self, context: str) -> bool:
+        """Switch to a different state context"""
+        # Store current context if needed
+        if not hasattr(self, '_current_context'):
+            self._current_context = "default"
+        
+        # Save current context state
+        current_state = self._state.copy()
+        self.set(f"context:{self._current_context}", current_state)
+        
+        # Load new context state
+        new_state = self.get(f"context:{context}", {})
+        self._state.clear()
+        self._state.update(new_state)
+        
+        self._current_context = context
+        return True
+
+    def set_shared(self, key: str, value: Any) -> bool:
+        """Set a value that is shared across all contexts"""
+        return self.set(f"shared:{key}", value)
+
     def __repr__(self) -> str:
         return f"StateManager(workflow_id='{self.workflow_id}', keys={len(self._state)}, operations={self._operation_count})"
 
@@ -971,3 +1001,107 @@ class SharedState:
 
     def __repr__(self) -> str:
         return f"SharedState(workflow_id='{self.workflow_id}', keys={len(self)})"
+
+    # Additional methods expected by tests
+    def update_agent_status(self, agent_id: str, status: str) -> bool:
+        """Update agent status"""
+        agent_state = self.get_agent_state(agent_id)
+        agent_state['status'] = status
+        agent_state['last_updated'] = time.time()
+        return self.set_agent_state(agent_id, agent_state)
+
+    def update_task_progress(self, task_id: str, progress: float, status: str = None) -> bool:
+        """Update task progress"""
+        task_state = self.get_task_state(task_id)
+        task_state['progress'] = progress
+        task_state['last_updated'] = time.time()
+        if status:
+            task_state['status'] = status
+        return self.set_task_state(task_id, task_state)
+
+    def update_workflow_step(self, workflow_id: str, step: int) -> bool:
+        """Update workflow step"""
+        workflow_state = self.get_workflow_state(workflow_id)
+        workflow_state['current_step'] = step
+        workflow_state['last_updated'] = time.time()
+        return self.set_workflow_state(workflow_id, workflow_state)
+
+    def get_nested(self, path: str, default: Any = None) -> Any:
+        """Get nested value using dot notation (e.g., 'user.profile.name')"""
+        keys = path.split('.')
+        value = self._state_manager._state
+        
+        try:
+            for key in keys:
+                if isinstance(value, dict) and key in value:
+                    value = value[key]
+                else:
+                    return default
+            return value
+        except (KeyError, TypeError):
+            return default
+
+    def set_nested(self, path: str, value: Any) -> bool:
+        """Set nested value using dot notation (e.g., 'user.profile.name')"""
+        keys = path.split('.')
+        current = self._state_manager._state
+        
+        # Navigate to the parent of the final key
+        for key in keys[:-1]:
+            if key not in current:
+                current[key] = {}
+            elif not isinstance(current[key], dict):
+                current[key] = {}
+            current = current[key]
+        
+        # Set the final value
+        current[keys[-1]] = value
+        return True
+
+    def enable_history(self, enabled: bool = True) -> bool:
+        """Enable state change history tracking"""
+        self._state_manager.enable_history = enabled
+        return True
+
+    def serialize(self) -> str:
+        """Serialize state to JSON string"""
+        try:
+            return json.dumps(self.to_dict(), default=str)
+        except Exception as e:
+            logger.error(f"Failed to serialize state: {e}")
+            return "{}"
+
+    def deserialize(self, data: str) -> bool:
+        """Deserialize state from JSON string"""
+        try:
+            state_dict = json.loads(data)
+            return self.from_dict(state_dict)
+        except Exception as e:
+            logger.error(f"Failed to deserialize state: {e}")
+            return False
+
+    def subscribe(self, event_type: str, callback: Callable[[str, Any, Any], None]) -> str:
+        """Subscribe to state changes"""
+        # Generate a subscription ID
+        subscription_id = str(uuid.uuid4())
+        
+        # Add to state manager's subscribers if it has them
+        if not hasattr(self._state_manager, '_subscribers'):
+            self._state_manager._subscribers = {}
+        
+        self._state_manager._subscribers[subscription_id] = {
+            'event_type': event_type,
+            'callback': callback
+        }
+        return subscription_id
+
+    def get_history(self, key: str = None) -> List[Dict[str, Any]]:
+        """Get state change history for a specific key or all changes"""
+        if not hasattr(self._state_manager, 'change_history'):
+            return []
+        
+        history = self._state_manager.change_history
+        if key is None:
+            return [change.to_dict() for change in history]
+        else:
+            return [change.to_dict() for change in history if change.key == key]

@@ -1,0 +1,169 @@
+# CrewGraph AI pytest configuration
+# Enhanced testing setup with advanced features
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = [
+    "-ra",                  # Show short test summary for all except passed
+    "--strict-markers",     # Treat unregistered markers as errors
+    "--strict-config",      # Treat config issues as errors
+    "--cov=crewgraph_ai",   # Coverage for main package
+    "--cov-report=term-missing",  # Show missing lines in terminal
+    "--cov-report=html:htmlcov",  # Generate HTML coverage report
+    "--cov-report=xml",     # Generate XML coverage report for CI
+    "--cov-fail-under=80",  # Fail if coverage below 80%
+    "--maxfail=5",          # Stop after 5 failures
+    "--tb=short",           # Shorter traceback format
+    "--durations=10",       # Show 10 slowest tests
+    "-v",                   # Verbose output
+]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*", "*Test"]
+python_functions = ["test_*"]
+
+# Test markers
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "performance: Performance and load tests",
+    "slow: Tests that take more than 5 seconds",
+    "requires_redis: Tests that require Redis connection",
+    "requires_faiss: Tests that require FAISS library",
+    "requires_gpu: Tests that require GPU resources",
+    "requires_network: Tests that require network access",
+    "templates: Template system tests",
+    "nlp: Natural language processing tests",
+    "intelligence: AI optimization tests",
+    "marketplace: Template marketplace tests",
+    "cli: Command line interface tests",
+    "security: Security-related tests",
+    "memory: Memory backend tests",
+    "core: Core functionality tests",
+    "workflow: Workflow execution tests",
+    "parallel: Tests that can run in parallel",
+    "serial: Tests that must run serially",
+]
+
+# Test discovery patterns
+norecursedirs = [
+    ".*",
+    "build",
+    "dist",
+    "CVS",
+    "_darcs",
+    "{arch}",
+    "*.egg",
+    "venv",
+    "env",
+    "virtualenv",
+    ".tox",
+    ".git",
+    "__pycache__",
+    "htmlcov",
+    ".pytest_cache",
+    "node_modules",
+]
+
+# Coverage configuration
+[tool.coverage.run]
+branch = true
+source = ["crewgraph_ai"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/env/*",
+    "setup.py",
+    "*/migrations/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+    "pass",
+    "\\.\\.\\.",  # Ellipsis
+]
+ignore_errors = true
+show_missing = true
+precision = 2
+
+[tool.coverage.html]
+directory = "htmlcov"
+title = "CrewGraph AI Test Coverage Report"
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+# Black code formatting
+[tool.black]
+line-length = 88
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+# isort import sorting
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+line_length = 88
+skip_gitignore = true
+known_first_party = ["crewgraph_ai"]
+known_third_party = ["pytest", "langchain", "langgraph", "crewai"]
+
+# MyPy type checking
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Gradually enable
+disallow_incomplete_defs = false  # Gradually enable
+check_untyped_defs = true
+disallow_untyped_decorators = false  # Gradually enable
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "crewai.*",
+    "langgraph.*",
+    "langchain.*",
+    "faiss.*",
+    "redis.*",
+]
+ignore_missing_imports = true
+
+# Flake8 linting (via setup.cfg since flake8 doesn't support pyproject.toml)
+# See setup.cfg for flake8 configuration
