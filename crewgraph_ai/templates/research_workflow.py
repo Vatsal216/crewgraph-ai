@@ -18,20 +18,21 @@ Created by: Vatsal216
 Date: 2025-07-23
 """
 
-from typing import Dict, List, Any
+from typing import Any, Dict, List
+
 from crewai import Agent
 
-from .workflow_templates import (
-    WorkflowTemplate, 
-    TemplateMetadata, 
-    TemplateParameter, 
-    TemplateStep,
-    TemplateCategory
-)
 from ..core.agents import AgentWrapper
-from ..core.tasks import TaskWrapper
 from ..core.orchestrator import GraphOrchestrator
+from ..core.tasks import TaskWrapper
 from ..utils.logging import get_logger
+from .workflow_templates import (
+    TemplateCategory,
+    TemplateMetadata,
+    TemplateParameter,
+    TemplateStep,
+    WorkflowTemplate,
+)
 
 logger = get_logger(__name__)
 
@@ -39,11 +40,11 @@ logger = get_logger(__name__)
 class ResearchWorkflowTemplate(WorkflowTemplate):
     """
     Template for creating automated research workflows.
-    
+
     This template provides a comprehensive framework for conducting automated
     research with information gathering, validation, analysis, and documentation.
     """
-    
+
     def _define_metadata(self) -> TemplateMetadata:
         """Define template metadata."""
         return TemplateMetadata(
@@ -59,7 +60,7 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
                 "Research topic definition",
                 "Access to information sources",
                 "Quality validation criteria",
-                "Output format specification"
+                "Output format specification",
             ],
             examples=[
                 {
@@ -69,8 +70,8 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
                         "research_topic": "AI chatbot market trends 2024",
                         "research_depth": "comprehensive",
                         "source_types": ["academic", "industry", "news"],
-                        "analysis_focus": "market_trends"
-                    }
+                        "analysis_focus": "market_trends",
+                    },
                 },
                 {
                     "name": "Competitive Analysis",
@@ -79,12 +80,12 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
                         "research_topic": "cloud computing providers comparison",
                         "research_depth": "detailed",
                         "source_types": ["industry", "reviews", "financial"],
-                        "analysis_focus": "competitive_landscape"
-                    }
-                }
-            ]
+                        "analysis_focus": "competitive_landscape",
+                    },
+                },
+            ],
         )
-    
+
     def _define_parameters(self) -> List[TemplateParameter]:
         """Define template parameters."""
         return [
@@ -93,7 +94,7 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
                 description="Main research topic or question to investigate",
                 param_type="str",
                 required=True,
-                examples=["AI in healthcare", "renewable energy trends", "fintech innovations"]
+                examples=["AI in healthcare", "renewable energy trends", "fintech innovations"],
             ),
             TemplateParameter(
                 name="research_depth",
@@ -101,8 +102,10 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
                 param_type="str",
                 required=True,
                 default_value="detailed",
-                validation_rules={"allowed_values": ["overview", "detailed", "comprehensive", "expert"]},
-                examples=["overview", "detailed", "comprehensive"]
+                validation_rules={
+                    "allowed_values": ["overview", "detailed", "comprehensive", "expert"]
+                },
+                examples=["overview", "detailed", "comprehensive"],
             ),
             TemplateParameter(
                 name="source_types",
@@ -110,8 +113,19 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
                 param_type="list",
                 required=True,
                 default_value=["academic", "industry", "news"],
-                validation_rules={"allowed_values": ["academic", "industry", "news", "reports", "reviews", "financial", "government", "social"]},
-                examples=[["academic", "industry"], ["news", "reports", "reviews"]]
+                validation_rules={
+                    "allowed_values": [
+                        "academic",
+                        "industry",
+                        "news",
+                        "reports",
+                        "reviews",
+                        "financial",
+                        "government",
+                        "social",
+                    ]
+                },
+                examples=[["academic", "industry"], ["news", "reports", "reviews"]],
             ),
             TemplateParameter(
                 name="analysis_focus",
@@ -119,11 +133,17 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
                 param_type="str",
                 required=True,
                 default_value="general_insights",
-                validation_rules={"allowed_values": [
-                    "general_insights", "market_trends", "competitive_landscape", 
-                    "technology_assessment", "risk_analysis", "opportunity_identification"
-                ]},
-                examples=["market_trends", "competitive_landscape", "technology_assessment"]
+                validation_rules={
+                    "allowed_values": [
+                        "general_insights",
+                        "market_trends",
+                        "competitive_landscape",
+                        "technology_assessment",
+                        "risk_analysis",
+                        "opportunity_identification",
+                    ]
+                },
+                examples=["market_trends", "competitive_landscape", "technology_assessment"],
             ),
             TemplateParameter(
                 name="time_horizon",
@@ -131,8 +151,10 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
                 param_type="str",
                 required=False,
                 default_value="current",
-                validation_rules={"allowed_values": ["historical", "current", "future", "comprehensive"]},
-                examples=["current", "future", "comprehensive"]
+                validation_rules={
+                    "allowed_values": ["historical", "current", "future", "comprehensive"]
+                },
+                examples=["current", "future", "comprehensive"],
             ),
             TemplateParameter(
                 name="geographic_scope",
@@ -141,7 +163,7 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
                 required=False,
                 default_value="global",
                 validation_rules={"allowed_values": ["local", "national", "regional", "global"]},
-                examples=["national", "global", "regional"]
+                examples=["national", "global", "regional"],
             ),
             TemplateParameter(
                 name="language_preferences",
@@ -149,14 +171,14 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
                 param_type="list",
                 required=False,
                 default_value=["english"],
-                examples=[["english"], ["english", "spanish"], ["english", "chinese", "japanese"]]
+                examples=[["english"], ["english", "spanish"], ["english", "chinese", "japanese"]],
             ),
             TemplateParameter(
                 name="fact_checking",
                 description="Enable comprehensive fact-checking and validation",
                 param_type="bool",
                 required=False,
-                default_value=True
+                default_value=True,
             ),
             TemplateParameter(
                 name="citation_style",
@@ -165,7 +187,7 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
                 required=False,
                 default_value="apa",
                 validation_rules={"allowed_values": ["apa", "mla", "chicago", "harvard", "ieee"]},
-                examples=["apa", "mla", "chicago"]
+                examples=["apa", "mla", "chicago"],
             ),
             TemplateParameter(
                 name="max_sources",
@@ -173,10 +195,10 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
                 param_type="int",
                 required=False,
                 default_value=50,
-                validation_rules={"min_value": 10, "max_value": 500}
-            )
+                validation_rules={"min_value": 10, "max_value": 500},
+            ),
         ]
-    
+
     def _define_steps(self) -> List[TemplateStep]:
         """Define workflow steps."""
         return [
@@ -189,7 +211,7 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
                 inputs=["research_topic", "research_depth", "analysis_focus"],
                 outputs=["research_plan", "key_concepts", "search_strategies"],
                 tools=["topic_analyzer", "concept_extractor"],
-                configuration={"analysis_depth": "comprehensive"}
+                configuration={"analysis_depth": "comprehensive"},
             ),
             TemplateStep(
                 step_id="source_identification",
@@ -201,7 +223,7 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
                 outputs=["source_catalog", "source_priorities"],
                 dependencies=["topic_analysis"],
                 tools=["source_finder", "credibility_assessor"],
-                configuration={"source_diversity": True}
+                configuration={"source_diversity": True},
             ),
             TemplateStep(
                 step_id="information_gathering",
@@ -213,7 +235,7 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
                 outputs=["raw_information", "source_metadata"],
                 dependencies=["source_identification"],
                 tools=["web_scraper", "document_extractor", "api_connector"],
-                configuration={"parallel_processing": True}
+                configuration={"parallel_processing": True},
             ),
             TemplateStep(
                 step_id="fact_validation",
@@ -226,7 +248,7 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
                 dependencies=["information_gathering"],
                 tools=["fact_checker", "source_validator", "contradiction_detector"],
                 configuration={"validation_threshold": "high"},
-                optional=False  # Can be skipped if fact_checking=False
+                optional=False,  # Can be skipped if fact_checking=False
             ),
             TemplateStep(
                 step_id="content_analysis",
@@ -238,7 +260,7 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
                 outputs=["analysis_results", "key_insights", "trends"],
                 dependencies=["fact_validation"],
                 tools=["content_analyzer", "trend_detector", "pattern_recognizer"],
-                configuration={"analysis_type": "comprehensive"}
+                configuration={"analysis_type": "comprehensive"},
             ),
             TemplateStep(
                 step_id="synthesis_documentation",
@@ -250,7 +272,7 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
                 outputs=["research_report", "executive_summary"],
                 dependencies=["content_analysis"],
                 tools=["report_writer", "citation_manager", "document_formatter"],
-                configuration={"include_methodology": True}
+                configuration={"include_methodology": True},
             ),
             TemplateStep(
                 step_id="quality_review",
@@ -262,14 +284,14 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
                 outputs=["quality_assessment", "final_report"],
                 dependencies=["synthesis_documentation"],
                 tools=["quality_checker", "peer_reviewer"],
-                configuration={"review_criteria": "academic_standards"}
-            )
+                configuration={"review_criteria": "academic_standards"},
+            ),
         ]
-    
+
     def _create_agents(self, params: Dict[str, Any]) -> Dict[str, AgentWrapper]:
         """Create agents for the research workflow."""
         agents = {}
-        
+
         # Research Coordinator Agent
         research_coordinator = Agent(
             role="Research Coordinator",
@@ -278,14 +300,12 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
             planning complex research projects. You excel at breaking down research topics, 
             identifying key concepts, and developing systematic research strategies.""",
             verbose=True,
-            allow_delegation=True
+            allow_delegation=True,
         )
         agents["research_coordinator"] = AgentWrapper(
-            name="ResearchCoordinator",
-            role="Research Coordinator",
-            crew_agent=research_coordinator
+            name="ResearchCoordinator", role="Research Coordinator", crew_agent=research_coordinator
         )
-        
+
         # Information Specialist Agent
         information_specialist = Agent(
             role="Information Specialist",
@@ -294,14 +314,14 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
             information sources across various domains. You excel at finding credible, 
             relevant sources and assessing their quality and reliability.""",
             verbose=True,
-            allow_delegation=False
+            allow_delegation=False,
         )
         agents["information_specialist"] = AgentWrapper(
             name="InformationSpecialist",
             role="Information Specialist",
-            crew_agent=information_specialist
+            crew_agent=information_specialist,
         )
-        
+
         # Research Assistant Agent
         research_assistant = Agent(
             role="Research Assistant",
@@ -310,14 +330,12 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
             gathering from diverse sources. You are systematic, thorough, and skilled at 
             extracting relevant information while maintaining detailed records.""",
             verbose=True,
-            allow_delegation=False
+            allow_delegation=False,
         )
         agents["research_assistant"] = AgentWrapper(
-            name="ResearchAssistant",
-            role="Research Assistant",
-            crew_agent=research_assistant
+            name="ResearchAssistant", role="Research Assistant", crew_agent=research_assistant
         )
-        
+
         # Fact Checker Agent
         fact_checker = Agent(
             role="Fact Checker",
@@ -326,14 +344,12 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
             information from multiple sources. You excel at cross-referencing facts, 
             identifying contradictions, and assessing source credibility.""",
             verbose=True,
-            allow_delegation=False
+            allow_delegation=False,
         )
         agents["fact_checker"] = AgentWrapper(
-            name="FactChecker",
-            role="Fact Checker",
-            crew_agent=fact_checker
+            name="FactChecker", role="Fact Checker", crew_agent=fact_checker
         )
-        
+
         # Research Analyst Agent
         research_analyst = Agent(
             role="Research Analyst",
@@ -342,14 +358,12 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
             pattern recognition, and insight generation. You excel at synthesizing complex 
             information and identifying trends and relationships.""",
             verbose=True,
-            allow_delegation=False
+            allow_delegation=False,
         )
         agents["research_analyst"] = AgentWrapper(
-            name="ResearchAnalyst",
-            role="Research Analyst",
-            crew_agent=research_analyst
+            name="ResearchAnalyst", role="Research Analyst", crew_agent=research_analyst
         )
-        
+
         # Research Writer Agent
         research_writer = Agent(
             role="Research Writer",
@@ -358,14 +372,12 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
             and professional writing. You excel at organizing complex information into 
             clear, well-structured reports with proper citations and formatting.""",
             verbose=True,
-            allow_delegation=False
+            allow_delegation=False,
         )
         agents["research_writer"] = AgentWrapper(
-            name="ResearchWriter",
-            role="Research Writer",
-            crew_agent=research_writer
+            name="ResearchWriter", role="Research Writer", crew_agent=research_writer
         )
-        
+
         # Senior Researcher Agent
         senior_researcher = Agent(
             role="Senior Researcher",
@@ -374,23 +386,21 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
             methodology and quality assurance. You provide expert review and ensure that 
             research meets the highest academic and professional standards.""",
             verbose=True,
-            allow_delegation=True
+            allow_delegation=True,
         )
         agents["senior_researcher"] = AgentWrapper(
-            name="SeniorResearcher",
-            role="Senior Researcher",
-            crew_agent=senior_researcher
+            name="SeniorResearcher", role="Senior Researcher", crew_agent=senior_researcher
         )
-        
+
         logger.info(f"Created {len(agents)} agents for research workflow")
         return agents
-    
-    def _create_tasks(self, 
-                     params: Dict[str, Any], 
-                     agents: Dict[str, AgentWrapper]) -> Dict[str, TaskWrapper]:
+
+    def _create_tasks(
+        self, params: Dict[str, Any], agents: Dict[str, AgentWrapper]
+    ) -> Dict[str, TaskWrapper]:
         """Create tasks for the research workflow."""
         tasks = {}
-        
+
         # Topic Analysis Task
         tasks["topic_analysis"] = TaskWrapper(
             task_id="topic_analysis",
@@ -408,9 +418,9 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
             Output: Detailed research plan with key concepts and search strategies.
             """,
             agent=agents["research_coordinator"],
-            expected_output="Comprehensive research plan with clearly defined scope and methodology"
+            expected_output="Comprehensive research plan with clearly defined scope and methodology",
         )
-        
+
         # Source Identification Task
         tasks["source_identification"] = TaskWrapper(
             task_id="source_identification",
@@ -428,9 +438,9 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
             Output: Catalog of prioritized sources with credibility assessments.
             """,
             agent=agents["information_specialist"],
-            expected_output="Comprehensive source catalog with priority rankings and credibility scores"
+            expected_output="Comprehensive source catalog with priority rankings and credibility scores",
         )
-        
+
         # Information Gathering Task
         tasks["information_gathering"] = TaskWrapper(
             task_id="information_gathering",
@@ -447,11 +457,11 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
             Output: Organized collection of information with complete source metadata.
             """,
             agent=agents["research_assistant"],
-            expected_output="Comprehensive information collection with detailed source tracking"
+            expected_output="Comprehensive information collection with detailed source tracking",
         )
-        
+
         # Fact Validation Task (conditional)
-        if params.get('fact_checking', True):
+        if params.get("fact_checking", True):
             tasks["fact_validation"] = TaskWrapper(
                 task_id="fact_validation",
                 description="""
@@ -467,9 +477,9 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
                 Output: Validated information with credibility assessments and conflict resolution.
                 """,
                 agent=agents["fact_checker"],
-                expected_output="Validated information with detailed credibility analysis and conflict resolution"
+                expected_output="Validated information with detailed credibility analysis and conflict resolution",
             )
-        
+
         # Content Analysis Task
         tasks["content_analysis"] = TaskWrapper(
             task_id="content_analysis",
@@ -487,9 +497,9 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
             Output: Comprehensive analysis with key insights and supporting evidence.
             """,
             agent=agents["research_analyst"],
-            expected_output="Detailed analysis with clear insights and evidence-based conclusions"
+            expected_output="Detailed analysis with clear insights and evidence-based conclusions",
         )
-        
+
         # Synthesis Documentation Task
         tasks["synthesis_documentation"] = TaskWrapper(
             task_id="synthesis_documentation",
@@ -507,9 +517,9 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
             Output: Complete research report with executive summary.
             """,
             agent=agents["research_writer"],
-            expected_output="Professional research report with executive summary and proper citations"
+            expected_output="Professional research report with executive summary and proper citations",
         )
-        
+
         # Quality Review Task
         tasks["quality_review"] = TaskWrapper(
             task_id="quality_review",
@@ -527,55 +537,58 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
             Output: Quality assessment and final reviewed report.
             """,
             agent=agents["senior_researcher"],
-            expected_output="Final high-quality research report with comprehensive quality assessment"
+            expected_output="Final high-quality research report with comprehensive quality assessment",
         )
-        
+
         logger.info(f"Created {len(tasks)} tasks for research workflow")
         return tasks
-    
-    def _configure_workflow_structure(self,
-                                    orchestrator: GraphOrchestrator,
-                                    params: Dict[str, Any],
-                                    agents: Dict[str, AgentWrapper],
-                                    tasks: Dict[str, TaskWrapper]):
+
+    def _configure_workflow_structure(
+        self,
+        orchestrator: GraphOrchestrator,
+        params: Dict[str, Any],
+        agents: Dict[str, AgentWrapper],
+        tasks: Dict[str, TaskWrapper],
+    ):
         """Configure the workflow structure and dependencies."""
-        
+
         # Set the entry point
         orchestrator.set_entry_point("topic_analysis")
-        
+
         # Build the linear workflow with dependencies
         orchestrator.add_edge("topic_analysis", "source_identification")
         orchestrator.add_edge("source_identification", "information_gathering")
-        
+
         # Add fact validation if enabled
-        if params.get('fact_checking', True) and 'fact_validation' in tasks:
+        if params.get("fact_checking", True) and "fact_validation" in tasks:
             orchestrator.add_edge("information_gathering", "fact_validation")
             orchestrator.add_edge("fact_validation", "content_analysis")
         else:
             orchestrator.add_edge("information_gathering", "content_analysis")
-        
+
         # Continue with analysis and documentation
         orchestrator.add_edge("content_analysis", "synthesis_documentation")
         orchestrator.add_edge("synthesis_documentation", "quality_review")
-        
+
         # Add error handling for critical steps
         for task_id in tasks.keys():
             orchestrator.add_error_handler(task_id, self._create_error_handler(task_id, params))
-        
+
         # Add conditional logic for quality gates
         orchestrator.add_conditional_edge(
             "quality_review",
             self._quality_gate_condition,
-            {"approved": "END", "revision_needed": "synthesis_documentation"}
+            {"approved": "END", "revision_needed": "synthesis_documentation"},
         )
-        
+
         logger.info("Research workflow structure configured")
-    
+
     def _create_error_handler(self, task_id: str, params: Dict[str, Any]) -> callable:
         """Create error handler for specific task."""
+
         def error_handler(error, context):
             logger.error(f"Error in {task_id}: {error}")
-            
+
             # Implement retry logic for information gathering tasks
             if task_id in ["source_identification", "information_gathering"]:
                 retry_count = context.get("retry_count", 0)
@@ -583,30 +596,30 @@ class ResearchWorkflowTemplate(WorkflowTemplate):
                     context["retry_count"] = retry_count + 1
                     logger.info(f"Retrying {task_id} (attempt {retry_count + 1})")
                     return "retry"
-            
+
             # For critical failures, attempt recovery
-            if task_id == "fact_validation" and not params.get('fact_checking', True):
+            if task_id == "fact_validation" and not params.get("fact_checking", True):
                 logger.warning("Fact validation failed, continuing without validation")
                 return "skip"
-            
+
             return "continue"
-        
+
         return error_handler
-    
+
     def _quality_gate_condition(self, state: Dict[str, Any]) -> str:
         """Determine if quality review passed or needs revision."""
         quality_assessment = state.get("quality_assessment", {})
         quality_score = quality_assessment.get("overall_score", 0)
-        
+
         # If quality score is acceptable, approve
         if quality_score >= 85:
             return "approved"
-        
+
         # Check revision count to avoid infinite loops
         revision_count = state.get("revision_count", 0)
         if revision_count >= 2:
             logger.warning("Maximum revisions reached, proceeding with current version")
             return "approved"
-        
+
         state["revision_count"] = revision_count + 1
         return "revision_needed"

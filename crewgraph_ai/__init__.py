@@ -16,14 +16,14 @@ Key Features:
 Basic Usage:
     ```python
     from crewgraph_ai import CrewGraph
-    
+
     # Create a workflow
     workflow = CrewGraph("my_workflow")
-    
+
     # Add agents and tasks
     workflow.add_agent(my_agent, "data_analyst")
     workflow.add_task("analyze_data", "Analyze the provided dataset")
-    
+
     # Execute workflow
     result = workflow.execute({"data": my_data})
     ```
@@ -31,15 +31,15 @@ Basic Usage:
 Advanced Usage:
     ```python
     from crewgraph_ai import GraphOrchestrator, WorkflowVisualizer
-    
+
     # Create orchestrator with visualization
     orchestrator = GraphOrchestrator("advanced_workflow")
-    
+
     # Build workflow with LangGraph
     orchestrator.create_state_graph()
     orchestrator.add_node("task1", my_function)
     orchestrator.add_edge("task1", "task2")
-    
+
     # Visualize workflow
     viz_path = orchestrator.visualize_workflow(format="html")
     print(f"Workflow visualization: {viz_path}")
@@ -54,10 +54,10 @@ __created__ = "2025-07-22 11:25:03"
 __license__ = "MIT"
 
 # Core imports
-from .core.agents import AgentWrapper, AgentPool
-from .core.tasks import TaskWrapper, TaskChain
+from .core.agents import AgentPool, AgentWrapper
 from .core.orchestrator import GraphOrchestrator, WorkflowBuilder
 from .core.state import SharedState, StateManager
+from .core.tasks import TaskChain, TaskWrapper
 
 # Memory imports
 from .memory.base import BaseMemory
@@ -74,90 +74,138 @@ try:
 except ImportError:
     FAISSMemory = None
 
-# Tools imports
-from .tools.registry import ToolRegistry
-from .tools.wrapper import ToolWrapper
-from .tools.builtin import BuiltinTools
+# Communication imports
+from .communication import (
+    AgentCommunicationHub,
+    Channel,
+    CommunicationProtocol,
+    Message,
+    MessagePriority,
+    MessageType,
+)
+
+# Main orchestration class for easy usage
+from .crewgraph import CrewGraph, CrewGraphConfig
+
+# Intelligence imports
+from .intelligence import (
+    BottleneckAnalyzer,
+    MLModelManager,
+    ModelType,
+    OptimizationStrategy,
+    PerformancePredictor,
+    ResourceAnalyzer,
+    ResourcePredictor,
+    WorkflowOptimizer,
+)
+
+# NLP imports
+from .nlp import (
+    CodeGenerator,
+    ConversationalWorkflowBuilder,
+    DocumentationGenerator,
+    NLToWorkflowConverter,
+    RequirementsParser,
+    WorkflowParser,
+    WorkflowToNLConverter,
+)
 
 # Planning imports
 from .planning.planner import DynamicPlanner
 from .planning.strategies import PlanningStrategy
 
-# Utility imports
-from .utils.exceptions import CrewGraphError, ValidationError, ExecutionError
-from .utils.logging import setup_logging, get_logger
-
-# Type definitions
-from .types import (
-    StateDict, TaskResult, AgentResponse, ToolFunction, 
-    NodeId, WorkflowId, TaskStatus, WorkflowStatus, NodeStatus,
-    AgentProtocol, MemoryProtocol, ToolProtocol, StateProtocol,
-    ExecutionResult, VisualizationConfig
+# Security imports
+from .security import (
+    AuditEvent,
+    AuditLogger,
+    CryptoConfig,
+    EncryptionManager,
+    Permission,
+    Role,
+    RoleManager,
+    SecurityManager,
+    User,
 )
-
-# Main orchestration class for easy usage
-from .crewgraph import CrewGraph, CrewGraphConfig
-from .utils.metrics import get_metrics_collector, MetricsCollector, PerformanceMonitor
-
-# Communication imports
-from .communication import AgentCommunicationHub, Message, MessageType, MessagePriority, Channel, CommunicationProtocol
 
 # Templates imports
 from .templates import (
-    WorkflowTemplate, TemplateRegistry, TemplateCategory, TemplateBuilder,
-    DataPipelineTemplate, ResearchWorkflowTemplate, ContentGenerationTemplate
+    ContentGenerationTemplate,
+    DataPipelineTemplate,
+    ResearchWorkflowTemplate,
+    TemplateBuilder,
+    TemplateCategory,
+    TemplateRegistry,
+    WorkflowTemplate,
+)
+from .tools.builtin import BuiltinTools
+
+# Tools imports
+from .tools.registry import ToolRegistry
+from .tools.wrapper import ToolWrapper
+
+# Type definitions
+from .types import (
+    AgentProtocol,
+    AgentResponse,
+    ExecutionResult,
+    MemoryProtocol,
+    NodeId,
+    NodeStatus,
+    StateDict,
+    StateProtocol,
+    TaskResult,
+    TaskStatus,
+    ToolFunction,
+    ToolProtocol,
+    VisualizationConfig,
+    WorkflowId,
+    WorkflowStatus,
 )
 
-# Security imports
-from .security import (
-    SecurityManager, RoleManager, Role, Permission, User,
-    AuditLogger, AuditEvent, EncryptionManager, CryptoConfig
-)
+# Utility imports
+from .utils.exceptions import CrewGraphError, ExecutionError, ValidationError
+from .utils.logging import get_logger, setup_logging
+from .utils.metrics import MetricsCollector, PerformanceMonitor, get_metrics_collector
 
-# Intelligence imports
-from .intelligence import (
-    WorkflowOptimizer, OptimizationStrategy, 
-    PerformancePredictor, ResourcePredictor,
-    BottleneckAnalyzer, ResourceAnalyzer,
-    MLModelManager, ModelType
-)
-
-# NLP imports
-from .nlp import (
-    RequirementsParser, WorkflowParser,
-    NLToWorkflowConverter, WorkflowToNLConverter,
-    ConversationalWorkflowBuilder,
-    DocumentationGenerator, CodeGenerator
-)
 # Intelligence imports (AI-driven optimization)
 try:
     from .intelligence import (
-        PerformancePredictor, WorkflowMetrics, ResourceOptimizer, OptimizationResult,
-        AdaptivePlanner, PlanningRecommendation, PatternAnalyzer, WorkflowPattern
+        AdaptivePlanner,
+        OptimizationResult,
+        PatternAnalyzer,
+        PlanningRecommendation,
+        ResourceOptimizer,
+        WorkflowMetrics,
+        WorkflowPattern,
     )
+
     INTELLIGENCE_AVAILABLE = True
 except ImportError:
-    PerformancePredictor = WorkflowMetrics = ResourceOptimizer = OptimizationResult = None
+    WorkflowMetrics = ResourceOptimizer = OptimizationResult = None
     AdaptivePlanner = PlanningRecommendation = PatternAnalyzer = WorkflowPattern = None
     INTELLIGENCE_AVAILABLE = False
 
 # NLP imports (Natural Language Processing)
 try:
     from .nlp import (
-        WorkflowParser, ParsedWorkflow, IntentClassifier, WorkflowIntent,
-        TaskExtractor, ExtractedTask, DocumentationGenerator, WorkflowDocumentation
+        ExtractedTask,
+        IntentClassifier,
+        ParsedWorkflow,
+        TaskExtractor,
+        WorkflowDocumentation,
+        WorkflowIntent,
     )
+
     NLP_AVAILABLE = True
 except ImportError:
-    WorkflowParser = ParsedWorkflow = IntentClassifier = WorkflowIntent = None
-    TaskExtractor = ExtractedTask = DocumentationGenerator = WorkflowDocumentation = None
+    ParsedWorkflow = IntentClassifier = WorkflowIntent = None
+    TaskExtractor = ExtractedTask = WorkflowDocumentation = None
     NLP_AVAILABLE = False
 
 # Analytics imports (Advanced Analytics & Visualization)
 try:
-    from .analytics import (
-        PerformanceDashboard, DashboardConfig, WorkflowAnalyzer, AnalysisReport
-    )
+    from .analytics import AnalysisReport, DashboardConfig, PerformanceDashboard, WorkflowAnalyzer
+
     ANALYTICS_AVAILABLE = True
 except ImportError:
     PerformanceDashboard = DashboardConfig = WorkflowAnalyzer = AnalysisReport = None
@@ -165,101 +213,102 @@ except ImportError:
 
 # Optimization imports (Performance Optimization)
 try:
-    from .optimization import (
-        WorkflowOptimizer, ResourceScheduler, PerformanceTuner
-    )
+    from .optimization import PerformanceTuner, ResourceScheduler
+
     OPTIMIZATION_AVAILABLE = True
 except ImportError:
-    WorkflowOptimizer = ResourceScheduler = PerformanceTuner = None
+    ResourceScheduler = PerformanceTuner = None
     OPTIMIZATION_AVAILABLE = False
 
 __all__ = [
     # Core classes
     "CrewGraph",
     "AgentWrapper",
-    "AgentPool", 
+    "AgentPool",
     "TaskWrapper",
     "TaskChain",
     "GraphOrchestrator",
     "WorkflowBuilder",
     "SharedState",
     "StateManager",
-    
     # Memory classes (always available)
     "BaseMemory",
     "DictMemory",
-    
     # Tool classes
     "ToolRegistry",
     "ToolWrapper",
     "BuiltinTools",
-    
     # Planning classes
     "DynamicPlanner",
     "PlanningStrategy",
-    
     # Communication classes
     "AgentCommunicationHub",
     "Message",
     "MessageType",
-    "MessagePriority", 
+    "MessagePriority",
     "Channel",
     "CommunicationProtocol",
-    
     # Template classes
     "WorkflowTemplate",
     "TemplateRegistry",
-    "TemplateCategory", 
+    "TemplateCategory",
     "TemplateBuilder",
     "DataPipelineTemplate",
     "ResearchWorkflowTemplate",
     "ContentGenerationTemplate",
-    
     # Security classes
     "SecurityManager",
     "RoleManager",
     "Role",
     "Permission",
     "User",
-    "AuditLogger", 
+    "AuditLogger",
     "AuditEvent",
     "EncryptionManager",
     "CryptoConfig",
-    
     # Intelligence classes
     "WorkflowOptimizer",
     "OptimizationStrategy",
-    "PerformancePredictor", 
+    "PerformancePredictor",
     "ResourcePredictor",
     "BottleneckAnalyzer",
     "ResourceAnalyzer",
     "MLModelManager",
     "ModelType",
-    
     # NLP classes
     "RequirementsParser",
     "WorkflowParser",
     "NLToWorkflowConverter",
-    "WorkflowToNLConverter", 
+    "WorkflowToNLConverter",
     "ConversationalWorkflowBuilder",
     "DocumentationGenerator",
     "CodeGenerator",
-    
     # Utilities
     "CrewGraphError",
-    "ValidationError", 
+    "ValidationError",
     "ExecutionError",
     "setup_logging",
     "get_logger",
     "get_metrics_collector",
-    "MetricsCollector", 
+    "MetricsCollector",
     "PerformanceMonitor",
-    
     # Type definitions
-    "StateDict", "TaskResult", "AgentResponse", "ToolFunction",
-    "NodeId", "WorkflowId", "TaskStatus", "WorkflowStatus", "NodeStatus",
-    "AgentProtocol", "MemoryProtocol", "ToolProtocol", "StateProtocol",
-    "ExecutionResult", "VisualizationConfig", "CrewGraphConfig",
+    "StateDict",
+    "TaskResult",
+    "AgentResponse",
+    "ToolFunction",
+    "NodeId",
+    "WorkflowId",
+    "TaskStatus",
+    "WorkflowStatus",
+    "NodeStatus",
+    "AgentProtocol",
+    "MemoryProtocol",
+    "ToolProtocol",
+    "StateProtocol",
+    "ExecutionResult",
+    "VisualizationConfig",
+    "CrewGraphConfig",
 ]
 
 # Add optional memory backends to __all__ if available
@@ -270,36 +319,49 @@ if FAISSMemory:
 
 # Add intelligence classes to __all__ if available
 if INTELLIGENCE_AVAILABLE:
-    __all__.extend([
-        "PerformancePredictor", "WorkflowMetrics", "ResourceOptimizer", "OptimizationResult",
-        "AdaptivePlanner", "PlanningRecommendation", "PatternAnalyzer", "WorkflowPattern"
-    ])
+    __all__.extend(
+        [
+            "WorkflowMetrics",
+            "ResourceOptimizer",
+            "OptimizationResult",
+            "AdaptivePlanner",
+            "PlanningRecommendation",
+            "PatternAnalyzer",
+            "WorkflowPattern",
+        ]
+    )
 
 # Add NLP classes to __all__ if available
 if NLP_AVAILABLE:
-    __all__.extend([
-        "WorkflowParser", "ParsedWorkflow", "IntentClassifier", "WorkflowIntent",
-        "TaskExtractor", "ExtractedTask", "DocumentationGenerator", "WorkflowDocumentation"
-    ])
+    __all__.extend(
+        [
+            "ParsedWorkflow",
+            "IntentClassifier",
+            "WorkflowIntent",
+            "TaskExtractor",
+            "ExtractedTask",
+            "WorkflowDocumentation",
+        ]
+    )
 
 # Add analytics classes to __all__ if available
 if ANALYTICS_AVAILABLE:
-    __all__.extend([
-        "PerformanceDashboard", "DashboardConfig", "WorkflowAnalyzer", "AnalysisReport"
-    ])
+    __all__.extend(
+        ["PerformanceDashboard", "DashboardConfig", "WorkflowAnalyzer", "AnalysisReport"]
+    )
 
 # Add optimization classes to __all__ if available
 if OPTIMIZATION_AVAILABLE:
-    __all__.extend([
-        "WorkflowOptimizer"
-    ])
+    __all__.extend(["ResourceScheduler", "PerformanceTuner"])
 
 # Setup default logging
 setup_logging()
 
 # Initialize global metrics on import
 _metrics = get_metrics_collector()
-_metrics.record_metric("crewgraph_library_imports_total", 1.0, {"version": __version__, "user": "Vatsal216"})
+_metrics.record_metric(
+    "crewgraph_library_imports_total", 1.0, {"version": __version__, "user": "Vatsal216"}
+)
 
 print(f"🎉 CrewGraph AI v{__version__} loaded with built-in metrics!")
 print(f"📊 Metrics tracking enabled for user: Vatsal216")

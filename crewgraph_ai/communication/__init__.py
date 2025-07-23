@@ -3,7 +3,7 @@ Communication Module for CrewGraph AI
 
 This module provides sophisticated inter-agent communication capabilities including:
 - Direct messaging between agents
-- Broadcasting to multiple agents  
+- Broadcasting to multiple agents
 - Channel-based communication
 - Message routing and history
 - Subscription management
@@ -14,20 +14,20 @@ Date: 2025-07-23
 
 from .agent_hub import (
     AgentCommunicationHub,
-    Message,
-    MessageType,
-    MessagePriority,
     Channel,
-    CommunicationProtocol
+    CommunicationProtocol,
+    Message,
+    MessagePriority,
+    MessageType,
 )
 
 __all__ = [
     "AgentCommunicationHub",
-    "Message", 
+    "Message",
     "MessageType",
     "MessagePriority",
     "Channel",
-    "CommunicationProtocol"
+    "CommunicationProtocol",
 ]
 
 # Version info

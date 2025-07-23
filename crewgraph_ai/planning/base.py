@@ -2,12 +2,12 @@
 Base planning interfaces and data structures
 """
 
-import uuid
 import time
+import uuid
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any, Dict, List, Optional, Union
 
 from ..utils.logging import get_logger
 
@@ -16,6 +16,7 @@ logger = get_logger(__name__)
 
 class NodeType(Enum):
     """Plan node types"""
+
     TASK = "task"
     CONDITION = "condition"
     PARALLEL = "parallel"
@@ -25,8 +26,9 @@ class NodeType(Enum):
 
 class EdgeType(Enum):
     """Plan edge types"""
+
     SEQUENTIAL = "sequential"
-    CONDITIONAL = "conditional" 
+    CONDITIONAL = "conditional"
     PARALLEL = "parallel"
     FALLBACK = "fallback"
 
@@ -34,6 +36,7 @@ class EdgeType(Enum):
 @dataclass
 class PlanNode:
     """Execution plan node"""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     task_name: str = ""
     node_type: NodeType = NodeType.TASK
@@ -47,6 +50,7 @@ class PlanNode:
 @dataclass
 class PlanEdge:
     """Execution plan edge"""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     from_node: str = ""
     to_node: str = ""
@@ -59,6 +63,7 @@ class PlanEdge:
 @dataclass
 class ExecutionPlan:
     """Complete execution plan"""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     name: str = ""
     nodes: List[PlanNode] = field(default_factory=list)
@@ -73,17 +78,19 @@ class ExecutionPlan:
 
 class PlanningStrategy(ABC):
     """Abstract base class for planning strategies"""
-    
+
     @abstractmethod
-    def create_plan(self,
-                   tasks: List[Any],
-                   state: Any,
-                   task_analysis: Dict[str, Any],
-                   resource_analysis: Dict[str, Any],
-                   constraints: Optional[Dict[str, Any]] = None) -> ExecutionPlan:
+    def create_plan(
+        self,
+        tasks: List[Any],
+        state: Any,
+        task_analysis: Dict[str, Any],
+        resource_analysis: Dict[str, Any],
+        constraints: Optional[Dict[str, Any]] = None,
+    ) -> ExecutionPlan:
         """Create execution plan using this strategy"""
         pass
-    
+
     @abstractmethod
     def get_strategy_name(self) -> str:
         """Get strategy name"""
@@ -92,19 +99,17 @@ class PlanningStrategy(ABC):
 
 class BasePlanner(ABC):
     """Abstract base class for planners"""
-    
+
     @abstractmethod
-    def create_plan(self, 
-                   tasks: List[Any],
-                   state: Any,
-                   constraints: Optional[Dict[str, Any]] = None) -> ExecutionPlan:
+    def create_plan(
+        self, tasks: List[Any], state: Any, constraints: Optional[Dict[str, Any]] = None
+    ) -> ExecutionPlan:
         """Create execution plan"""
         pass
-    
+
     @abstractmethod
-    def replan(self,
-              plan_id: str,
-              current_state: Any,
-              execution_feedback: Dict[str, Any]) -> Optional[ExecutionPlan]:
+    def replan(
+        self, plan_id: str, current_state: Any, execution_feedback: Dict[str, Any]
+    ) -> Optional[ExecutionPlan]:
         """Replan based on execution feedback"""
         pass

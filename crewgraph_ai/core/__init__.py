@@ -2,15 +2,15 @@
 Core module for CrewGraph AI
 """
 
-from .agents import AgentWrapper, AgentPool
-from .tasks import TaskWrapper, TaskChain
+from .agents import AgentPool, AgentWrapper
 from .orchestrator import GraphOrchestrator, WorkflowBuilder
 from .state import SharedState, StateManager
+from .tasks import TaskChain, TaskWrapper
 
 __all__ = [
     "AgentWrapper",
     "AgentPool",
-    "TaskWrapper", 
+    "TaskWrapper",
     "TaskChain",
     "GraphOrchestrator",
     "WorkflowBuilder",

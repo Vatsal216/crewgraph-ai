@@ -5,10 +5,10 @@ Provides comprehensive visualization tools for debugging, monitoring, and
 analyzing CrewGraph AI workflows.
 """
 
-from .workflow_visualizer import WorkflowVisualizer
+from .debug_tools import DebugTools
 from .execution_tracer import ExecutionTracer
 from .memory_inspector import MemoryInspector
-from .debug_tools import DebugTools
+from .workflow_visualizer import WorkflowVisualizer
 
 __all__ = ["WorkflowVisualizer", "ExecutionTracer", "MemoryInspector", "DebugTools"]
 
