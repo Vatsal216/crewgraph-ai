@@ -158,13 +158,14 @@ class StateManager:
 
     def __init__(
         self,
-        workflow_id: str,
+        workflow_id: str = None,
         persistence_mode: StatePersistenceMode = StatePersistenceMode.MEMORY,
         enable_history: bool = True,
         max_history_size: int = 1000,
         enable_validation: bool = True,
         enable_snapshots: bool = True,
         auto_snapshot_interval: Optional[int] = None,
+        memory_backend=None,  # For backward compatibility
     ):
         """
         Initialize state manager.
@@ -177,8 +178,10 @@ class StateManager:
             enable_validation: Enable state validation
             enable_snapshots: Enable state snapshots
             auto_snapshot_interval: Automatic snapshot interval in seconds
+            memory_backend: Memory backend (for backward compatibility)
         """
-        self.workflow_id = workflow_id
+        self.workflow_id = workflow_id or "default_workflow"
+        self.memory_backend = memory_backend  # For backward compatibility
         self.persistence_mode = persistence_mode
         self.enable_history = enable_history
         self.max_history_size = max_history_size
@@ -753,6 +756,10 @@ class StateManager:
         self.stop_auto_snapshot()
         self._save_to_file()
 
+    def clear_all(self) -> bool:
+        """Clear all state data (alias for clear)"""
+        return self.clear()
+
     def __repr__(self) -> str:
         return f"StateManager(workflow_id='{self.workflow_id}', keys={len(self._state)}, operations={self._operation_count})"
 
@@ -785,20 +792,27 @@ class SharedState:
     Date: 2025-07-22 12:23:59 UTC
     """
 
-    def __init__(self, memory=None, workflow_id: str = "default_workflow", **kwargs):
+    def __init__(self, memory=None, workflow_id: str = "default_workflow", memory_backend=None, **kwargs):
         """
         Initialize shared state.
 
         Args:
             memory: Memory backend (optional)
             workflow_id: Workflow identifier
+            memory_backend: Alternative name for memory (for backward compatibility)
             **kwargs: Additional StateManager options
         """
-        self.memory = memory
+        # Support both 'memory' and 'memory_backend' parameters for backward compatibility
+        self.memory = memory or memory_backend
+        self.memory_backend = self.memory  # For backward compatibility
         self.workflow_id = workflow_id
 
         # Create underlying state manager
-        self._state_manager = StateManager(workflow_id=workflow_id, **kwargs)
+        self._state_manager = StateManager(workflow_id=workflow_id, memory_backend=self.memory, **kwargs)
+
+        # Add metrics for compatibility
+        from ..utils.metrics import get_metrics_collector
+        self.metrics = get_metrics_collector()
 
         logger.info(f"SharedState initialized for workflow: {workflow_id}")
 
@@ -810,9 +824,16 @@ class SharedState:
         """Set value in shared state"""
         return self._state_manager.set(key, value)
 
-    def update(self, data: Dict[str, Any]) -> bool:
-        """Update multiple values in shared state"""
-        return self._state_manager.bulk_set(data)
+    def update(self, key_or_data, value=None) -> bool:
+        """Update single value or multiple values in shared state"""
+        if isinstance(key_or_data, dict) and value is None:
+            # Multiple values update: update({"key1": "value1", "key2": "value2"})
+            return self._state_manager.bulk_set(key_or_data)
+        elif isinstance(key_or_data, str) and value is not None:
+            # Single value update: update("key", "value")
+            return self.set(key_or_data, value)
+        else:
+            raise ValueError("Invalid arguments: use update(key, value) or update({key: value, ...})")
 
     def delete(self, key: str) -> bool:
         """Delete key from shared state"""
@@ -864,7 +885,7 @@ class SharedState:
                 "workflow": self.workflow_id,
                 "keys": self.keys(),
                 "size": len(self.keys()),
-                "memory_backend": str(type(self._memory).__name__)
+                "memory_backend": str(type(self.memory).__name__) if self.memory else "None"
             }
 
     def save(self, filename: str) -> bool:
@@ -899,6 +920,30 @@ class SharedState:
     def get_state_manager(self) -> StateManager:
         """Get underlying state manager for advanced operations"""
         return self._state_manager
+
+    def set_agent_state(self, agent_id: str, state_data: Dict[str, Any]) -> bool:
+        """Set agent-specific state data"""
+        return self.set(f"agent:{agent_id}", state_data)
+
+    def get_agent_state(self, agent_id: str) -> Dict[str, Any]:
+        """Get agent-specific state data"""
+        return self.get(f"agent:{agent_id}", {})
+
+    def set_task_state(self, task_id: str, state_data: Dict[str, Any]) -> bool:
+        """Set task-specific state data"""
+        return self.set(f"task:{task_id}", state_data)
+
+    def get_task_state(self, task_id: str) -> Dict[str, Any]:
+        """Get task-specific state data"""
+        return self.get(f"task:{task_id}", {})
+
+    def set_workflow_state(self, workflow_id: str, state_data: Dict[str, Any]) -> bool:
+        """Set workflow-specific state data"""
+        return self.set(f"workflow:{workflow_id}", state_data)
+
+    def get_workflow_state(self, workflow_id: str) -> Dict[str, Any]:
+        """Get workflow-specific state data"""
+        return self.get(f"workflow:{workflow_id}", {})
 
     def __getitem__(self, key: str) -> Any:
         """Dictionary-like access for getting values"""

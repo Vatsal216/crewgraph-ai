@@ -42,6 +42,8 @@ from ..utils.exceptions import CrewGraphError, ExecutionError, ValidationError
 from ..utils.logging import get_logger
 from .state import SharedState
 from .tasks import TaskChain, TaskResult, TaskStatus, TaskWrapper
+from .error_recovery import AdvancedErrorRecovery, handle_workflow_error
+from ..monitoring import get_monitoring_dashboard
 
 logger = get_logger(__name__)
 
@@ -104,6 +106,7 @@ class GraphOrchestrator:
         max_concurrent_nodes: int = 5,
         enable_checkpoints: bool = True,
         checkpoint_interval: int = 5,
+        state=None,  # Backward compatibility parameter
     ) -> None:
         """
         Initialize graph orchestrator.
@@ -113,6 +116,7 @@ class GraphOrchestrator:
             max_concurrent_nodes: Maximum parallel node execution
             enable_checkpoints: Enable workflow checkpointing
             checkpoint_interval: Checkpoint save interval (seconds)
+            state: Shared state (backward compatibility)
         """
         self.name: str = name
         self.id: WorkflowId = str(uuid.uuid4())
@@ -136,7 +140,7 @@ class GraphOrchestrator:
 
         # Execution tracking
         self.status: WorkflowStatus = WorkflowStatus.PENDING
-        self.shared_state: Optional[SharedState] = None
+        self.shared_state: Optional[SharedState] = state  # Use provided state if available
         self.start_time: Optional[float] = None
         self.end_time: Optional[float] = None
         self._execution_history: List[ExecutionEvent] = []
@@ -160,6 +164,12 @@ class GraphOrchestrator:
         self._executor: Optional[ThreadPoolExecutor] = None
         self._active_executions: Set[NodeId] = set()
         self._execution_lock = threading.Lock()
+
+        # Error recovery system
+        self.error_recovery = AdvancedErrorRecovery()
+
+        # Monitoring integration
+        self.monitoring = get_monitoring_dashboard()
 
         # Graph state
         self.is_built: bool = False
@@ -479,6 +489,13 @@ class GraphOrchestrator:
         self.start_time = time.time()
         self.current_thread_id = str(uuid.uuid4())
 
+        # Register with monitoring
+        self.monitoring.register_workflow(
+            workflow_id=self.id,
+            name=self.name,
+            nodes_total=len(self._nodes)
+        )
+
         try:
             # Convert SharedState to dict if needed
             if hasattr(state, "to_dict"):
@@ -527,6 +544,15 @@ class GraphOrchestrator:
 
                 self.status = WorkflowStatus.COMPLETED if success else WorkflowStatus.FAILED
 
+                # Update monitoring
+                self.monitoring.update_workflow_status(
+                    workflow_id=self.id,
+                    status="completed" if success else "failed",
+                    nodes_completed=tasks_completed,
+                    nodes_failed=tasks_failed,
+                    error_count=len(final_state.get("errors", []))
+                )
+
                 result = WorkflowResult(
                     workflow_id=self.id,
                     workflow_name=self.name,
@@ -564,6 +590,13 @@ class GraphOrchestrator:
             self.end_time = time.time()
             execution_time = self.end_time - self.start_time if self.start_time else 0
             self.status = WorkflowStatus.FAILED
+
+            # Update monitoring  
+            self.monitoring.update_workflow_status(
+                workflow_id=self.id,
+                status="failed",
+                error_count=1
+            )
 
             error_msg = f"Workflow execution failed: {str(e)}"
             logger.error(error_msg)
@@ -769,11 +802,28 @@ class GraphOrchestrator:
                 execution_time = time.time() - start_time
                 logger.error(f"Node '{name}' failed after {execution_time:.2f}s: {e}")
 
+                # Use advanced error recovery
+                should_retry, recovery_result = handle_workflow_error(
+                    error=e,
+                    node_id=name,
+                    workflow_id=getattr(self, 'id', 'unknown'),
+                    context={"execution_time": execution_time, "state": state}
+                )
+
                 # Add error to state
                 if isinstance(state, dict):
                     state["errors"] = state.get("errors", [])
                     state["errors"].append(f"Node '{name}' failed: {str(e)}")
+                    
+                    # Add recovery information
+                    if recovery_result:
+                        state.setdefault("recovery_actions", []).append({
+                            "node": name,
+                            "error": str(e),
+                            "recovery": recovery_result
+                        })
 
+                # Re-raise the exception (recovery coordination happens at orchestrator level)
                 raise
 
         return wrapped_func
@@ -861,6 +911,14 @@ class GraphOrchestrator:
                 lines.append(f"  {source} -> [conditional] -> {list(mapping.values())}")
 
             return "\n".join(lines)
+
+    def get_error_analytics(self) -> Dict[str, Any]:
+        """Get comprehensive error analytics from the workflow"""
+        return self.error_recovery.get_error_analytics()
+
+    def export_error_report(self, format: str = "json") -> str:
+        """Export detailed error report"""
+        return self.error_recovery.export_error_report(format)
 
     def shutdown(self):
         """Shutdown orchestrator and cleanup resources."""

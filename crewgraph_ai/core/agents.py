@@ -56,7 +56,7 @@ class AgentWrapper:
 
     def __init__(
         self,
-        name: str,
+        name: str = None,
         role: str = "",
         goal: str = "",
         backstory: str = "",
@@ -67,6 +67,9 @@ class AgentWrapper:
         timeout: float = 300.0,
         tools: Optional[List[Any]] = None,
         verbose: bool = False,
+        # Backward compatibility parameters
+        agent: Optional[Agent] = None,
+        agent_id: Optional[str] = None,
         **kwargs
     ):
         """
@@ -85,13 +88,25 @@ class AgentWrapper:
             tools: Available tools for the agent
             verbose: Enable verbose logging
             **kwargs: Additional CrewAI agent parameters
+            agent: Backward compatibility for crew_agent
+            agent_id: Backward compatibility for name
         """
+        # Handle backward compatibility
+        if agent is not None and crew_agent is None:
+            crew_agent = agent
+        if agent_id is not None and name is None:
+            name = agent_id
+        if name is None:
+            name = f"agent_{str(uuid.uuid4())[:8]}"
+            
         self.id = str(uuid.uuid4())
         self.name = name
+        self.agent_id = name  # Backward compatibility alias
         self.role = role
         self.goal = goal
         self.backstory = backstory
         self.crew_agent = crew_agent
+        self.agent = crew_agent  # Backward compatibility alias
         self.state = state
         self.memory = memory
         self.max_retries = max_retries

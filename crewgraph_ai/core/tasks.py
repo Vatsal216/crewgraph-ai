@@ -62,7 +62,7 @@ class TaskWrapper:
 
     def __init__(
         self,
-        name: str,
+        name: str = None,
         description: str = "",
         crew_task: Optional[CrewTask] = None,
         state: Optional[Any] = None,
@@ -71,6 +71,9 @@ class TaskWrapper:
         retry_delay: float = 1.0,
         timeout: float = 300.0,
         cache_results: bool = True,
+        # Backward compatibility parameters
+        task: Optional[CrewTask] = None,
+        task_id: Optional[str] = None,
     ):
         """
         Initialize task wrapper.
@@ -85,11 +88,23 @@ class TaskWrapper:
             retry_delay: Base delay between retries (exponential backoff)
             timeout: Task timeout in seconds
             cache_results: Whether to cache task results
+            task: Backward compatibility for crew_task
+            task_id: Backward compatibility for name
         """
+        # Handle backward compatibility
+        if task is not None and crew_task is None:
+            crew_task = task
+        if task_id is not None and name is None:
+            name = task_id
+        if name is None:
+            name = f"task_{str(uuid.uuid4())[:8]}"
+            
         self.id = str(uuid.uuid4())
         self.name = name
+        self.task_id = name  # Backward compatibility alias
         self.description = description
         self.crew_task = crew_task  # Original CrewAI Task
+        self.task = crew_task  # Backward compatibility alias
         self.state = state
         self.tool_registry = tool_registry
         self.max_retries = max_retries
@@ -117,6 +132,10 @@ class TaskWrapper:
         self._on_complete: Optional[Callable] = None
         self._on_error: Optional[Callable] = None
         self._on_retry: Optional[Callable] = None
+
+        # Add metrics for compatibility  
+        from ..utils.metrics import get_metrics_collector
+        self.metrics = get_metrics_collector()
 
         logger.info(f"TaskWrapper '{name}' initialized with ID: {self.id}")
 

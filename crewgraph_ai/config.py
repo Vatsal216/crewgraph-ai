@@ -192,6 +192,26 @@ class CrewGraphSettings:
         if self.default_memory_backend == "redis" and not self.redis_url:
             issues.append("Redis memory backend selected but REDIS_URL not configured")
         
+        # Validate numeric ranges
+        if self.max_retries < 0:
+            issues.append("max_retries must be non-negative")
+        
+        if self.timeout <= 0:
+            issues.append("timeout must be positive")
+            
+        if not 0.0 <= self.temperature <= 2.0:
+            issues.append("temperature must be between 0.0 and 2.0")
+        
+        # Validate log level
+        valid_log_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+        if self.log_level.upper() not in valid_log_levels:
+            issues.append(f"log_level must be one of: {', '.join(valid_log_levels)}")
+        
+        # Validate provider-specific settings
+        if self.openai_api_key:
+            if not self.openai_api_key.startswith(('sk-', 'org-')):
+                issues.append("OpenAI API key format appears invalid")
+        
         return issues
     
     def create_env_file(self, path: str = ".env") -> None:
@@ -285,6 +305,111 @@ def quick_setup() -> CrewGraphSettings:
         
     configure(settings)
     return settings
+
+
+def quick_setup() -> CrewGraphSettings:
+    """
+    Quick setup wizard for first-time users
+    
+    Returns configured settings
+    """
+    print("🚀 CrewGraph AI Quick Setup")
+    print("=" * 40)
+    
+    settings = CrewGraphSettings.from_env()
+    issues = settings.validate()
+    
+    if issues:
+        print("⚠️  Configuration Issues Found:")
+        for issue in issues:
+            print(f"  - {issue}")
+        print()
+        
+        # Offer to create .env file
+        create_env = input("📁 Create .env file template? (y/n): ").lower() == 'y'
+        if create_env:
+            settings.create_env_file()
+            print("\n✅ Setup complete! Edit .env file with your API keys and restart.")
+            return settings
+    else:
+        print("✅ Configuration looks good!")
+        
+    configure(settings)
+    return settings
+
+
+def validate_configuration(settings: CrewGraphSettings = None) -> bool:
+    """
+    Validate current configuration and print detailed report
+    
+    Args:
+        settings: Settings to validate (uses global if None)
+        
+    Returns:
+        True if configuration is valid
+    """
+    if settings is None:
+        settings = get_settings()
+    
+    print("🔍 Configuration Validation Report")
+    print("=" * 50)
+    
+    issues = settings.validate()
+    
+    if not issues:
+        print("✅ Configuration is valid and ready to use!")
+        print("\n📋 Current Configuration:")
+        print(f"  Default Provider: {settings.default_provider}")
+        print(f"  Default Model: {settings.default_model}")
+        print(f"  Memory Backend: {settings.default_memory_backend}")
+        print(f"  Log Level: {settings.log_level}")
+        print(f"  Max Retries: {settings.max_retries}")
+        print(f"  Timeout: {settings.timeout}s")
+        return True
+    
+    print("❌ Configuration Issues Found:")
+    for i, issue in enumerate(issues, 1):
+        print(f"  {i}. {issue}")
+    
+    print(f"\n📝 Found {len(issues)} issue(s) that need attention.")
+    print("💡 Run quick_setup() to fix these issues interactively.")
+    
+    return False
+
+
+def load_config_file(file_path: str) -> CrewGraphSettings:
+    """
+    Load configuration from file with enhanced error handling
+    
+    Args:
+        file_path: Path to configuration file (.yaml, .yml, or .json)
+        
+    Returns:
+        CrewGraphSettings instance
+        
+    Raises:
+        FileNotFoundError: If config file doesn't exist
+        ValueError: If config file format is invalid
+        ValidationError: If loaded config is invalid
+    """
+    try:
+        settings = CrewGraphSettings.from_file(file_path)
+        
+        # Validate loaded configuration
+        issues = settings.validate()
+        if issues:
+            error_msg = f"Configuration validation failed:\n" + "\n".join(f"  - {issue}" for issue in issues)
+            raise ValueError(error_msg)
+        
+        print(f"✅ Configuration loaded successfully from {file_path}")
+        return settings
+        
+    except FileNotFoundError:
+        print(f"❌ Configuration file not found: {file_path}")
+        raise
+    except Exception as e:
+        print(f"❌ Failed to load configuration: {e}")
+        raise
 
 
 if __name__ == "__main__":
