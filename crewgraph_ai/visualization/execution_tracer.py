@@ -22,6 +22,11 @@ try:
     import pandas as pd
     VISUALIZATION_AVAILABLE = True
 except ImportError:
+    # Create mock objects when dependencies are not available
+    go = None
+    pyo = None
+    make_subplots = None
+    pd = None
     VISUALIZATION_AVAILABLE = False
 
 from ..utils.logging import get_logger
@@ -500,7 +505,7 @@ class ExecutionTracer:
         logger.info(f"Execution timeline visualization saved to: {filepath}")
         return str(filepath)
     
-    def _add_timeline_traces(self, fig: go.Figure, row: int) -> None:
+    def _add_timeline_traces(self, fig: Any, row: int) -> None:
         """Add node execution timeline traces to the figure."""
         for node_id, trace in self.node_traces.items():
             if not trace.start_time:
@@ -535,7 +540,7 @@ class ExecutionTracer:
             row=row, col=1
         )
     
-    def _add_error_traces(self, fig: go.Figure, row: int) -> None:
+    def _add_error_traces(self, fig: Any, row: int) -> None:
         """Add error event traces to the figure."""
         if not self.error_log:
             # Add placeholder if no errors
@@ -573,7 +578,7 @@ class ExecutionTracer:
             row=row, col=1
         )
     
-    def _add_performance_traces(self, fig: go.Figure, row: int) -> None:
+    def _add_performance_traces(self, fig: Any, row: int) -> None:
         """Add performance metrics traces to the figure."""
         if not self.performance_metrics:
             return

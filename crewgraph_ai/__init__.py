@@ -99,6 +99,21 @@ from .types import (
 from .crewgraph import CrewGraph, CrewGraphConfig
 from .utils.metrics import get_metrics_collector, MetricsCollector, PerformanceMonitor
 
+# Communication imports
+from .communication import AgentCommunicationHub, Message, MessageType, MessagePriority, Channel, CommunicationProtocol
+
+# Templates imports
+from .templates import (
+    WorkflowTemplate, TemplateRegistry, TemplateCategory, TemplateBuilder,
+    DataPipelineTemplate, ResearchWorkflowTemplate, ContentGenerationTemplate
+)
+
+# Security imports
+from .security import (
+    SecurityManager, RoleManager, Role, Permission, User,
+    AuditLogger, AuditEvent, EncryptionManager, CryptoConfig
+)
+
 # Visualization imports (optional)
 try:
     from .visualization import WorkflowVisualizer, ExecutionTracer, MemoryInspector, DebugTools
@@ -134,6 +149,34 @@ __all__ = [
     # Planning classes
     "DynamicPlanner",
     "PlanningStrategy",
+    
+    # Communication classes
+    "AgentCommunicationHub",
+    "Message",
+    "MessageType",
+    "MessagePriority", 
+    "Channel",
+    "CommunicationProtocol",
+    
+    # Template classes
+    "WorkflowTemplate",
+    "TemplateRegistry",
+    "TemplateCategory", 
+    "TemplateBuilder",
+    "DataPipelineTemplate",
+    "ResearchWorkflowTemplate",
+    "ContentGenerationTemplate",
+    
+    # Security classes
+    "SecurityManager",
+    "RoleManager",
+    "Role",
+    "Permission",
+    "User",
+    "AuditLogger", 
+    "AuditEvent",
+    "EncryptionManager",
+    "CryptoConfig",
     
     # Utilities
     "CrewGraphError",

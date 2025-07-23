@@ -22,6 +22,14 @@ try:
     import pandas as pd
     VISUALIZATION_AVAILABLE = True
 except ImportError:
+    # Create mock objects when dependencies are not available
+    plt = None
+    patches = None
+    nx = None
+    go = None
+    pyo = None
+    make_subplots = None
+    pd = None
     VISUALIZATION_AVAILABLE = False
 
 from ..utils.logging import get_logger
@@ -188,7 +196,7 @@ class WorkflowVisualizer:
         logger.info(f"Interactive workflow visualization saved to: {filepath}")
         return str(filepath)
     
-    def _create_node_trace(self, G: nx.DiGraph, pos: Dict, show_details: bool) -> go.Scatter:
+    def _create_node_trace(self, G: Any, pos: Dict, show_details: bool) -> Any:
         """Create plotly node trace with hover information."""
         node_x = []
         node_y = []
