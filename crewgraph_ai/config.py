@@ -7,6 +7,8 @@ import os
 from dataclasses import dataclass, field
 from typing import Dict, Optional, List
 from pathlib import Path
+from datetime import datetime
+import time
 
 
 @dataclass
@@ -72,6 +74,11 @@ class CrewGraphSettings:
     enable_encryption: bool = False
     encryption_key: Optional[str] = None
     
+    # User/System Identification (replaces hardcoded values)
+    system_user: str = "crewgraph_system"
+    organization: Optional[str] = None
+    environment: str = "production"
+    
     @classmethod
     def from_env(cls) -> "CrewGraphSettings":
         """Create configuration from environment variables"""
@@ -104,6 +111,11 @@ class CrewGraphSettings:
             # Security
             enable_encryption=os.getenv("CREWGRAPH_ENCRYPTION", "false").lower() == "true",
             encryption_key=os.getenv("CREWGRAPH_ENCRYPTION_KEY"),
+            
+            # User/System Identification
+            system_user=os.getenv("CREWGRAPH_SYSTEM_USER", "crewgraph_system"),
+            organization=os.getenv("CREWGRAPH_ORGANIZATION"),
+            environment=os.getenv("CREWGRAPH_ENVIRONMENT", "production"),
         )
     
     @classmethod
@@ -415,3 +427,25 @@ def load_config_file(file_path: str) -> CrewGraphSettings:
 if __name__ == "__main__":
     # Run quick setup when script is executed directly
     quick_setup()
+
+
+# Utility functions for dynamic values (replaces hardcoded values)
+def get_current_user() -> str:
+    """Get the current system user from configuration"""
+    settings = get_settings()
+    return settings.system_user
+
+
+def get_current_timestamp() -> str:
+    """Get current timestamp in ISO format"""
+    return datetime.now().isoformat()
+
+
+def get_formatted_timestamp() -> str:
+    """Get current timestamp in the format used throughout the codebase"""
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def get_unix_timestamp() -> float:
+    """Get current Unix timestamp"""
+    return time.time()

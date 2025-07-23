@@ -1,9 +1,6 @@
 """
 Dictionary-based memory backend for CrewGraph AI
 Simple in-memory storage with persistence options
-
-Author: Vatsal216
-Created: 2025-07-22 12:01:02 UTC
 """
 
 import json
@@ -30,9 +27,6 @@ class DictMemory(BaseMemory):
     - TTL support with automatic cleanup
     - Thread-safe operations
     - JSON and pickle serialization
-
-    Created by: Vatsal216
-    Date: 2025-07-22 12:01:02 UTC
     """
 
     def __init__(
@@ -279,7 +273,7 @@ class DictMemory(BaseMemory):
         thread.start()
 
     def _save_to_file(self):
-        """Save memory to persistent file"""
+        """Save memory to persistent file with enhanced error handling"""
         try:
             with self._lock:
                 # Clean expired keys before saving
@@ -300,40 +294,88 @@ class DictMemory(BaseMemory):
                     "ttl_storage": valid_ttl,
                     "saved_at": time.time(),
                     "version": "1.0.0",
+                    "metadata": {
+                        "backend_type": self.__class__.__name__,
+                        "total_keys": len(valid_storage),
+                        "has_ttl_keys": len(valid_ttl),
+                    }
                 }
 
-            # Try JSON first (more readable)
+            # Ensure directory exists
             path = Path(self.persistence_file)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Create backup of existing file
+            if path.exists():
+                backup_path = path.with_suffix(f"{path.suffix}.backup")
+                try:
+                    import shutil
+                    shutil.copy2(path, backup_path)
+                except Exception as e:
+                    logger.warning(f"Could not create backup: {e}")
+            
+            # Try JSON first (more readable)
             try:
                 with open(path, "w", encoding="utf-8") as f:
                     json.dump(data, f, indent=2, default=str)
-            except (TypeError, ValueError):
+                logger.debug(f"Saved {len(valid_storage)} keys to {path}")
+            except (TypeError, ValueError) as e:
+                logger.warning(f"JSON serialization failed: {e}, falling back to pickle")
                 # Fall back to pickle for non-serializable objects
                 pickle_file = path.with_suffix(".pickle")
                 with open(pickle_file, "wb") as f:
                     pickle.dump(data, f)
+                logger.debug(f"Saved {len(valid_storage)} keys to {pickle_file} (pickle format)")
 
         except Exception as e:
             logger.error(f"Failed to save to file: {e}")
             raise MemoryError(f"Persistence save failed: {e}")
 
     def _load_from_file(self):
-        """Load memory from persistent file"""
+        """Load memory from persistent file with enhanced error handling"""
         path = Path(self.persistence_file)
         pickle_path = path.with_suffix(".pickle")
 
         try:
+            data = None
+            
             # Try JSON first
             if path.exists():
-                with open(path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-            elif pickle_path.exists():
-                with open(pickle_path, "rb") as f:
-                    data = pickle.load(f)
-            else:
-                logger.info("No persistence file found, starting with empty memory")
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    logger.debug(f"Loaded data from JSON file: {path}")
+                except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                    logger.warning(f"JSON file corrupted: {e}, trying backup or pickle")
+                    
+                    # Try backup file
+                    backup_path = path.with_suffix(f"{path.suffix}.backup")
+                    if backup_path.exists():
+                        try:
+                            with open(backup_path, "r", encoding="utf-8") as f:
+                                data = json.load(f)
+                            logger.info(f"Loaded data from backup file: {backup_path}")
+                        except Exception as e:
+                            logger.warning(f"Backup file also corrupted: {e}")
+            
+            # Try pickle if JSON failed or doesn't exist
+            if data is None and pickle_path.exists():
+                try:
+                    with open(pickle_path, "rb") as f:
+                        data = pickle.load(f)
+                    logger.debug(f"Loaded data from pickle file: {pickle_path}")
+                except Exception as e:
+                    logger.warning(f"Pickle file corrupted: {e}")
+            
+            if data is None:
+                logger.info("No valid persistence file found, starting with empty memory")
                 return
 
+            # Validate data structure
+            if not isinstance(data, dict):
+                logger.warning("Invalid data format in persistence file, starting fresh")
+                return
+                
             with self._lock:
                 self._storage = data.get("storage", {})
                 self._ttl_storage = data.get("ttl_storage", {})
@@ -347,11 +389,12 @@ class DictMemory(BaseMemory):
                     self._storage.pop(key, None)
                     self._ttl_storage.pop(key, None)
 
-            logger.info(f"Loaded {len(self._storage)} keys from persistence file")
+            logger.info(f"Loaded {len(self._storage)} keys from persistence file (cleaned {len(expired_keys)} expired)")
 
         except Exception as e:
             logger.error(f"Failed to load from file: {e}")
             # Don't raise error, just start with empty memory
+            logger.info("Starting with empty memory due to load failure")
 
     def get_memory_info(self) -> Dict[str, Any]:
         """Get detailed memory information"""

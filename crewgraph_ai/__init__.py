@@ -84,8 +84,8 @@ from .communication import (
     MessageType,
 )
 
-# Main orchestration class for easy usage
-from .crewgraph import CrewGraph, CrewGraphConfig
+# Main orchestration class for easy usage (temporarily commented out due to dependency issues)
+# from .crewgraph import CrewGraph, CrewGraphConfig
 from .config import CrewGraphSettings, get_settings, configure, quick_setup
 
 # Intelligence imports
