@@ -84,9 +84,15 @@ from .communication import (
     MessageType,
 )
 
+
+# Main orchestration class for easy usage
+from .crewgraph import CrewGraph, CrewGraphConfig
+# Skip problematic imports for now - will be fixed in integration
+# from .config import CrewGraphSettings, get_settings, configure, quick_setup
 # Main orchestration class for easy usage (temporarily commented out due to dependency issues)
 # from .crewgraph import CrewGraph, CrewGraphConfig
 from .config import CrewGraphSettings, get_settings, configure, quick_setup
+
 
 # Intelligence imports (commented out due to missing numpy dependency)
 # from .intelligence import (
@@ -222,10 +228,10 @@ except ImportError:
 
 __all__ = [
     # Configuration
-    "CrewGraphSettings",
-    "get_settings", 
-    "configure",
-    "quick_setup",
+    # "CrewGraphSettings",
+    # "get_settings", 
+    # "configure",
+    # "quick_setup",
     # Core classes
     "CrewGraph",
     "AgentWrapper",

@@ -1,0 +1,218 @@
+# CrewGraph AI + Langflow Integration
+# Docker Compose Configuration
+
+version: '3.8'
+
+services:
+  # CrewGraph Langflow API Service
+  crewgraph-langflow-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.langflow
+    ports:
+      - "8000:8000"     # API Server
+      - "9090:9090"     # Metrics (if enabled)
+    environment:
+      # API Configuration
+      - LANGFLOW_API_HOST=0.0.0.0
+      - LANGFLOW_API_PORT=8000
+      - LANGFLOW_API_PREFIX=/api/v1
+      - LANGFLOW_ENABLE_CORS=true
+      - LANGFLOW_CORS_ORIGINS=*
+      
+      # Authentication & Security
+      - LANGFLOW_JWT_SECRET=${LANGFLOW_JWT_SECRET:-your-super-secure-jwt-secret-key-here}
+      - LANGFLOW_JWT_ALGORITHM=HS256
+      - LANGFLOW_JWT_EXPIRE_HOURS=24
+      - LANGFLOW_ENABLE_RBAC=true
+      
+      # Langflow Configuration
+      - LANGFLOW_URL=http://langflow:7860
+      - LANGFLOW_API_KEY=${LANGFLOW_API_KEY:-}
+      - LANGFLOW_AUTO_SYNC=true
+      - LANGFLOW_SYNC_INTERVAL=60
+      
+      # Component Registration
+      - LANGFLOW_AUTO_REGISTER=true
+      - LANGFLOW_COMPONENT_REGISTRY_URL=
+      - LANGFLOW_CUSTOM_COMPONENTS_PATH=/app/custom_components
+      
+      # Workflow Management
+      - LANGFLOW_WORKFLOW_STORAGE=/app/workflows
+      - LANGFLOW_ENABLE_VALIDATION=true
+      - LANGFLOW_MAX_WORKFLOW_SIZE_MB=50
+      - LANGFLOW_BACKUP_ENABLED=true
+      
+      # Performance & Scaling
+      - LANGFLOW_MAX_CONCURRENT=10
+      - LANGFLOW_ASYNC_EXECUTION=true
+      - LANGFLOW_EXECUTION_TIMEOUT=3600
+      - LANGFLOW_ENABLE_CACHING=true
+      - LANGFLOW_CACHE_TTL=300
+      
+      # Monitoring & Logging
+      - LANGFLOW_ENABLE_METRICS=true
+      - LANGFLOW_METRICS_PORT=9090
+      - LANGFLOW_LOG_LEVEL=INFO
+      - LANGFLOW_AUDIT_LOGGING=true
+      
+      # Development & Debug
+      - LANGFLOW_DEBUG=false
+      - LANGFLOW_DEV_TOOLS=false
+      - LANGFLOW_HOT_RELOAD=false
+      
+      # Database (optional - for persistent storage)
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///app/data/workflows.db}
+      
+      # Redis (optional - for caching and session storage)
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      
+    volumes:
+      - ./workflows:/app/workflows
+      - ./custom_components:/app/custom_components
+      - ./data:/app/data
+    depends_on:
+      - redis
+      - langflow
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - crewgraph-network
+
+  # Langflow Service
+  langflow:
+    image: langflowai/langflow:latest
+    ports:
+      - "7860:7860"
+    environment:
+      - LANGFLOW_HOST=0.0.0.0
+      - LANGFLOW_PORT=7860
+      - LANGFLOW_LOG_LEVEL=INFO
+      - LANGFLOW_CACHE_TYPE=redis
+      - LANGFLOW_REDIS_URL=redis://redis:6379
+    volumes:
+      - ./langflow_data:/app/langflow
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7860/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - crewgraph-network
+
+  # Redis for caching and session storage
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - crewgraph-network
+
+  # PostgreSQL (optional - for production use)
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=crewgraph_langflow
+      - POSTGRES_USER=crewgraph
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-change-this-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crewgraph"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - crewgraph-network
+    profiles:
+      - production
+
+  # Nginx reverse proxy (optional - for production)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - crewgraph-langflow-api
+      - langflow
+    restart: unless-stopped
+    networks:
+      - crewgraph-network
+    profiles:
+      - production
+
+  # Prometheus (optional - for metrics collection)
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - crewgraph-network
+    profiles:
+      - monitoring
+
+  # Grafana (optional - for metrics visualization)
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - crewgraph-network
+    profiles:
+      - monitoring
+
+volumes:
+  redis_data:
+    driver: local
+  postgres_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  crewgraph-network:
+    driver: bridge
