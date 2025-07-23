@@ -1,0 +1,368 @@
+# Ingress Controller Configuration for CrewGraph AI
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: crewgraph-ai-ingress
+  namespace: crewgraph-ai
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # AWS Load Balancer Controller annotations
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/load-balancer-class: service.k8s.aws/nlb
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '30'
+    alb.ingress.kubernetes.io/healthy-threshold-count: '2'
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: '3'
+spec:
+  tls:
+  - hosts:
+    - api.crewgraph-ai.com
+    - crewgraph-ai.com
+    secretName: crewgraph-ai-tls
+  rules:
+  - host: api.crewgraph-ai.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: crewgraph-ai-service
+            port:
+              number: 8000
+      - path: /health
+        pathType: Exact
+        backend:
+          service:
+            name: crewgraph-ai-service
+            port:
+              number: 8080
+      - path: /metrics
+        pathType: Prefix
+        backend:
+          service:
+            name: crewgraph-ai-service
+            port:
+              number: 8080
+  - host: crewgraph-ai.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: crewgraph-ai-web-service
+            port:
+              number: 80
+---
+# Network Policies for Security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: crewgraph-ai-network-policy
+  namespace: crewgraph-ai
+spec:
+  podSelector:
+    matchLabels:
+      app: crewgraph-ai
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8000
+    - protocol: TCP
+      port: 8080
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443  # HTTPS
+    - protocol: TCP
+      port: 80   # HTTP
+    - protocol: TCP
+      port: 53   # DNS
+    - protocol: UDP
+      port: 53   # DNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow access to Redis
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow access to PostgreSQL (if running in cluster)
+  - to:
+    - podSelector:
+        matchLabels:
+          app: postgresql
+    ports:
+    - protocol: TCP
+      port: 5432
+---
+# Service Monitor for Prometheus
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: crewgraph-ai-metrics
+  namespace: crewgraph-ai
+  labels:
+    app: crewgraph-ai
+spec:
+  selector:
+    matchLabels:
+      app: crewgraph-ai
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics
+    scheme: http
+---
+# Load Balancer Service for External Access
+apiVersion: v1
+kind: Service
+metadata:
+  name: crewgraph-ai-lb
+  namespace: crewgraph-ai
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: "http"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: "/health"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval: "30"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout: "10"
+    service.beta.kubernetes.io/aws-load-balancer-healthy-threshold: "2"
+    service.beta.kubernetes.io/aws-load-balancer-unhealthy-threshold: "3"
+spec:
+  type: LoadBalancer
+  selector:
+    app: crewgraph-ai
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8000
+    protocol: TCP
+  - name: https
+    port: 443
+    targetPort: 8000
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: 8080
+    protocol: TCP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 300
+---
+# Internal Service for Cluster Communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: crewgraph-ai-internal
+  namespace: crewgraph-ai
+  labels:
+    app: crewgraph-ai
+spec:
+  type: ClusterIP
+  selector:
+    app: crewgraph-ai
+  ports:
+  - name: api
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  - name: metrics
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+---
+# Headless Service for StatefulSet (if needed)
+apiVersion: v1
+kind: Service
+metadata:
+  name: crewgraph-ai-headless
+  namespace: crewgraph-ai
+  labels:
+    app: crewgraph-ai
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: crewgraph-ai
+  ports:
+  - name: api
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  - name: metrics
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+---
+# Certificate Issuer for TLS
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: admin@crewgraph-ai.com
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+    - dns01:
+        route53:
+          region: us-west-2
+          hostedZoneID: Z1234567890ABC  # Replace with actual hosted zone ID
+          accessKeyID: AKIA1234567890ABCDEF
+          secretAccessKeySecretRef:
+            name: route53-credentials
+            key: secret-access-key
+---
+# Route53 credentials secret (create manually)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: route53-credentials
+  namespace: cert-manager
+type: Opaque
+data:
+  secret-access-key: <base64-encoded-secret-key>
+---
+# Istio Service Mesh Configuration (Optional)
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: crewgraph-ai-gateway
+  namespace: crewgraph-ai
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - api.crewgraph-ai.com
+    tls:
+      httpsRedirect: true
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: crewgraph-ai-tls
+    hosts:
+    - api.crewgraph-ai.com
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: crewgraph-ai-vs
+  namespace: crewgraph-ai
+spec:
+  hosts:
+  - api.crewgraph-ai.com
+  gateways:
+  - crewgraph-ai-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /health
+    route:
+    - destination:
+        host: crewgraph-ai-service
+        port:
+          number: 8080
+    timeout: 10s
+  - match:
+    - uri:
+        prefix: /metrics
+    route:
+    - destination:
+        host: crewgraph-ai-service
+        port:
+          number: 8080
+    timeout: 30s
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: crewgraph-ai-service
+        port:
+          number: 8000
+    timeout: 300s
+    retries:
+      attempts: 3
+      perTryTimeout: 100s
+      retryOn: 5xx,gateway-error,connect-failure,refused-stream
+---
+# Destination Rule for Load Balancing
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: crewgraph-ai-dr
+  namespace: crewgraph-ai
+spec:
+  host: crewgraph-ai-service
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_CONN
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 50
+        http2MaxRequests: 100
+        maxRequestsPerConnection: 10
+        maxRetries: 3
+        idleTimeout: 60s
+    circuitBreaker:
+      consecutiveErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 30

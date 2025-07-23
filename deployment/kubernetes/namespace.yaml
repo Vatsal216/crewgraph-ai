@@ -1,0 +1,362 @@
+# Namespace for CrewGraph AI
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: crewgraph-ai
+  labels:
+    name: crewgraph-ai
+    project: crewgraph-ai
+    environment: production
+    tier: application
+    istio-injection: enabled  # Enable Istio service mesh
+  annotations:
+    description: "CrewGraph AI application namespace"
+    managed-by: "terraform"
+---
+# Monitoring namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    name: monitoring
+    project: crewgraph-ai
+    environment: production
+    tier: monitoring
+  annotations:
+    description: "Monitoring and observability stack"
+---
+# Service Account for CrewGraph AI
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: crewgraph-ai
+  namespace: crewgraph-ai
+  labels:
+    app: crewgraph-ai
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/crewgraph-ai-production-service-role
+automountServiceAccountToken: true
+---
+# Role for CrewGraph AI application
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: crewgraph-ai
+  name: crewgraph-ai-role
+rules:
+# Allow reading pods for health checks and monitoring
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+# Allow reading services for service discovery
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["get", "list", "watch"]
+# Allow reading configmaps and secrets
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list", "watch"]
+# Allow creating and updating events for logging
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+# Allow reading endpoints for service mesh
+- apiGroups: [""]
+  resources: ["endpoints"]
+  verbs: ["get", "list", "watch"]
+# Allow managing workflow custom resources (if any)
+- apiGroups: ["crewgraph.ai"]
+  resources: ["workflows", "tasks", "executions"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+# RoleBinding for CrewGraph AI
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: crewgraph-ai-rolebinding
+  namespace: crewgraph-ai
+subjects:
+- kind: ServiceAccount
+  name: crewgraph-ai
+  namespace: crewgraph-ai
+roleRef:
+  kind: Role
+  name: crewgraph-ai-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# ClusterRole for cross-namespace operations
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: crewgraph-ai-cluster-role
+rules:
+# Allow reading nodes for resource monitoring
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list", "watch"]
+# Allow reading namespaces for multi-tenant operations
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list", "watch"]
+# Allow reading persistent volumes for storage management
+- apiGroups: [""]
+  resources: ["persistentvolumes"]
+  verbs: ["get", "list", "watch"]
+# Allow reading storage classes
+- apiGroups: ["storage.k8s.io"]
+  resources: ["storageclasses"]
+  verbs: ["get", "list", "watch"]
+# Allow metrics access
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["nodes", "pods"]
+  verbs: ["get", "list"]
+# Allow custom metrics access
+- apiGroups: ["custom.metrics.k8s.io"]
+  resources: ["*"]
+  verbs: ["get", "list"]
+---
+# ClusterRoleBinding for CrewGraph AI
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: crewgraph-ai-cluster-rolebinding
+subjects:
+- kind: ServiceAccount
+  name: crewgraph-ai
+  namespace: crewgraph-ai
+roleRef:
+  kind: ClusterRole
+  name: crewgraph-ai-cluster-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Service Account for Monitoring
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: monitoring-service-account
+  namespace: monitoring
+  labels:
+    app: monitoring
+---
+# ClusterRole for Monitoring
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: monitoring-cluster-role
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - nodes/proxy
+  - nodes/metrics
+  - services
+  - endpoints
+  - pods
+  - ingresses
+  - configmaps
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["extensions"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
+- nonResourceURLs: ["/metrics", "/metrics/cadvisor"]
+  verbs: ["get"]
+---
+# ClusterRoleBinding for Monitoring
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: monitoring-cluster-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: monitoring-cluster-role
+subjects:
+- kind: ServiceAccount
+  name: monitoring-service-account
+  namespace: monitoring
+---
+# Pod Security Policy (if PSP is enabled)
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: crewgraph-ai-psp
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+    - ALL
+  volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'projected'
+    - 'secret'
+    - 'downwardAPI'
+    - 'persistentVolumeClaim'
+  runAsUser:
+    rule: 'MustRunAsNonRoot'
+  seLinux:
+    rule: 'RunAsAny'
+  fsGroup:
+    rule: 'RunAsAny'
+---
+# Resource Quotas for the namespace
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: crewgraph-ai-quota
+  namespace: crewgraph-ai
+spec:
+  hard:
+    requests.cpu: "10"
+    requests.memory: "20Gi"
+    limits.cpu: "50"
+    limits.memory: "100Gi"
+    requests.storage: "100Gi"
+    persistentvolumeclaims: "10"
+    pods: "50"
+    services: "10"
+    secrets: "20"
+    configmaps: "20"
+    replicationcontrollers: "0"
+    count/deployments.apps: "10"
+    count/statefulsets.apps: "5"
+    count/jobs.batch: "20"
+    count/cronjobs.batch: "5"
+---
+# Limit Ranges for pods
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: crewgraph-ai-limits
+  namespace: crewgraph-ai
+spec:
+  limits:
+  - default:
+      cpu: "1"
+      memory: "2Gi"
+    defaultRequest:
+      cpu: "100m"
+      memory: "256Mi"
+    max:
+      cpu: "8"
+      memory: "16Gi"
+    min:
+      cpu: "50m"
+      memory: "128Mi"
+    type: Container
+  - default:
+      storage: "10Gi"
+    max:
+      storage: "100Gi"
+    min:
+      storage: "1Gi"
+    type: PersistentVolumeClaim
+---
+# Network Policy for namespace isolation
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: namespace-isolation
+  namespace: crewgraph-ai
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow ingress from ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+  # Allow ingress from monitoring namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+  # Allow ingress from same namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: crewgraph-ai
+  egress:
+  # Allow all egress traffic (can be restricted based on requirements)
+  - to: []
+---
+# Priority Class for CrewGraph AI pods
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: crewgraph-ai-priority
+value: 1000
+globalDefault: false
+description: "Priority class for CrewGraph AI application pods"
+---
+# Custom Resource Definition for Workflows (example)
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: workflows.crewgraph.ai
+  labels:
+    app: crewgraph-ai
+spec:
+  group: crewgraph.ai
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              name:
+                type: string
+              description:
+                type: string
+              tasks:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    type:
+                      type: string
+                    config:
+                      type: object
+          status:
+            type: object
+            properties:
+              phase:
+                type: string
+                enum: ["Pending", "Running", "Succeeded", "Failed"]
+              startTime:
+                type: string
+                format: date-time
+              completionTime:
+                type: string
+                format: date-time
+              message:
+                type: string
+    additionalPrinterColumns:
+    - name: Phase
+      type: string
+      description: Current phase of the workflow
+      jsonPath: .status.phase
+    - name: Age
+      type: date
+      jsonPath: .metadata.creationTimestamp
+  scope: Namespaced
+  names:
+    plural: workflows
+    singular: workflow
+    kind: Workflow
+    shortNames:
+    - wf
