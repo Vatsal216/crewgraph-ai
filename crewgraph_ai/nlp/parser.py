@@ -1,25 +1,16 @@
 """
-<<<<<<< HEAD
 Natural Language Parsers for CrewGraph AI
 
-Parse natural language requirements and descriptions into structured data.
+Comprehensive parsing capabilities for converting natural language requirements
+and descriptions into structured workflow definitions. Includes both specialized
+workflow parsing and general requirements parsing functionality.
 
 Author: Vatsal216
-Created: 2025-07-23 06:25:00 UTC
-=======
-Workflow Parser for CrewGraph AI NLP Module
-
-This module provides natural language parsing capabilities to convert
-descriptions into structured workflow definitions.
-
-Author: Vatsal216
-Created: 2025-07-23 06:03:54 UTC
->>>>>>> origin/copilot/fix-71b1051d-a728-419e-a2a5-887da1cf638d
+Created: 2025-07-23 10:33:54 UTC
 """
 
 import re
 import json
-<<<<<<< HEAD
 from typing import Dict, List, Any, Optional, Tuple, Set
 from dataclasses import dataclass
 from enum import Enum
@@ -30,6 +21,17 @@ from ..utils.metrics import get_metrics_collector
 
 logger = get_logger(__name__)
 metrics = get_metrics_collector()
+
+
+class WorkflowType(Enum):
+    """Types of workflows that can be parsed."""
+    DATA_PROCESSING = "data_processing"
+    ANALYSIS = "analysis"
+    AUTOMATION = "automation"
+    RESEARCH = "research"
+    CONTENT_GENERATION = "content_generation"
+    CUSTOMER_SERVICE = "customer_service"
+    GENERAL = "general"
 
 
 class TaskType(Enum):
@@ -71,7 +73,7 @@ class ParsedTask:
     estimated_complexity: float
     agent_role_required: Optional[AgentRole]
     created_by: str = "Vatsal216"
-    created_at: str = "2025-07-23 06:25:00"
+    created_at: str = "2025-07-23 10:33:54 UTC"
 
 
 @dataclass
@@ -84,45 +86,26 @@ class ParsedAgent:
     tools: List[str]
     specialization: str
     created_by: str = "Vatsal216"
-    created_at: str = "2025-07-23 06:25:00"
-=======
-from typing import Dict, List, Any, Optional, Tuple
-from dataclasses import dataclass
-from enum import Enum
-
-from ..utils.logging import get_logger
-from ..types import WorkflowId
-
-logger = get_logger(__name__)
-
-
-class WorkflowType(Enum):
-    """Types of workflows that can be parsed."""
-    DATA_PROCESSING = "data_processing"
-    ANALYSIS = "analysis"
-    AUTOMATION = "automation"
-    RESEARCH = "research"
-    CONTENT_GENERATION = "content_generation"
-    CUSTOMER_SERVICE = "customer_service"
-    GENERAL = "general"
->>>>>>> origin/copilot/fix-71b1051d-a728-419e-a2a5-887da1cf638d
+    created_at: str = "2025-07-23 10:33:54 UTC"
 
 
 @dataclass
 class ParsedWorkflow:
-<<<<<<< HEAD
-    """Parsed workflow information"""
+    """Represents a workflow parsed from natural language."""
     name: str
     description: str
+    workflow_type: WorkflowType
     objectives: List[str]
-    tasks: List[ParsedTask]
-    agents: List[ParsedAgent]
-    dependencies: List[Tuple[str, str]]
+    tasks: List[Dict[str, Any]]  # Can contain both ParsedTask objects and dict representations
+    agents: Optional[List[ParsedAgent]]  # Optional for simple workflows
+    dependencies: List[Dict[str, str]]
     constraints: List[str]
     success_criteria: List[str]
-    estimated_duration: float
+    estimated_duration: int  # in minutes
+    confidence_score: float
+    metadata: Dict[str, Any]
     created_by: str = "Vatsal216"
-    created_at: str = "2025-07-23 06:25:00"
+    created_at: str = "2025-07-23 10:33:54 UTC"
 
 
 class RequirementsParser:
@@ -133,7 +116,7 @@ class RequirementsParser:
     and workflow structure from natural language descriptions.
     
     Created by: Vatsal216
-    Date: 2025-07-23 06:25:00 UTC
+    Date: 2025-07-23 10:33:54 UTC
     """
     
     def __init__(self):
@@ -146,7 +129,7 @@ class RequirementsParser:
         self._lock = threading.RLock()
         
         logger.info("RequirementsParser initialized")
-        logger.info("User: Vatsal216, Time: 2025-07-23 06:25:00")
+        logger.info("User: Vatsal216, Time: 2025-07-23 10:33:54 UTC")
     
     def parse_requirements(self, requirements_text: str) -> Dict[str, Any]:
         """
@@ -188,7 +171,7 @@ class RequirementsParser:
                 "metadata": {
                     "parser_version": "1.0.0",
                     "created_by": "Vatsal216",
-                    "created_at": "2025-07-23 06:25:00"
+                    "created_at": "2025-07-23 10:33:54 UTC"
                 }
             }
             
@@ -710,57 +693,29 @@ class RequirementsParser:
             r'(?:within|before|after)\s+(\d+\s+\w+)',
             r'(?:budget|cost|limit)\s+(?:is|of|under)\s+(.+)'
         ]
-=======
-    """Represents a workflow parsed from natural language."""
-    name: str
-    description: str
-    workflow_type: WorkflowType
-    tasks: List[Dict[str, Any]]
-    dependencies: List[Dict[str, str]]
-    estimated_duration: int  # in minutes
-    confidence_score: float
-    metadata: Dict[str, Any]
->>>>>>> origin/copilot/fix-71b1051d-a728-419e-a2a5-887da1cf638d
 
 
 class WorkflowParser:
     """
-<<<<<<< HEAD
-    Parse workflow descriptions and convert them to structured formats.
-    
-    Specialized parser for workflow-specific language and patterns.
-    
-    Created by: Vatsal216
-    Date: 2025-07-23 06:25:00 UTC
-    """
-    
-    def __init__(self):
-        """Initialize workflow parser"""
-        self.requirements_parser = RequirementsParser()
-        
-        logger.info("WorkflowParser initialized")
-        logger.info("User: Vatsal216, Time: 2025-07-23 06:25:00")
-    
-    def parse_workflow_description(self, description: str) -> ParsedWorkflow:
-        """
-        Parse a workflow description into structured components.
-        
-        Args:
-            description: Natural language workflow description
-=======
     Parses natural language descriptions into structured workflow definitions.
     
     Uses pattern matching and keyword analysis to understand workflow requirements
-    and convert them into executable CrewGraph AI workflows.
+    and convert them into executable CrewGraph AI workflows. Combines both simple
+    workflow parsing and comprehensive requirements parsing.
+    
+    Created by: Vatsal216
+    Date: 2025-07-23 10:33:54 UTC
     """
     
     def __init__(self):
         """Initialize the workflow parser."""
+        self.requirements_parser = RequirementsParser()
         self.task_patterns = self._initialize_task_patterns()
         self.dependency_patterns = self._initialize_dependency_patterns()
         self.workflow_type_keywords = self._initialize_type_keywords()
         
         logger.info("WorkflowParser initialized with pattern matching")
+        logger.info("User: Vatsal216, Time: 2025-07-23 10:33:54 UTC")
     
     def parse_description(self, description: str, context: Optional[Dict[str, Any]] = None) -> ParsedWorkflow:
         """
@@ -769,131 +724,62 @@ class WorkflowParser:
         Args:
             description: Natural language description of the workflow
             context: Additional context for parsing (user preferences, domain, etc.)
->>>>>>> origin/copilot/fix-71b1051d-a728-419e-a2a5-887da1cf638d
             
         Returns:
             Parsed workflow structure
         """
-<<<<<<< HEAD
-        # Use requirements parser as base
-        parsed_data = self.requirements_parser.parse_requirements(description)
-        
-        # Convert to ParsedWorkflow
-        tasks = [ParsedTask(**task_dict) for task_dict in parsed_data['tasks']]
-        agents = [ParsedAgent(**agent_dict) for agent_dict in parsed_data['agents']]
-        
-        workflow = ParsedWorkflow(
-            name=parsed_data['workflow_name'],
-            description=parsed_data['description'],
-            objectives=parsed_data['objectives'],
-            tasks=tasks,
-            agents=agents,
-            dependencies=parsed_data['dependencies'],
-            constraints=parsed_data['constraints'],
-            success_criteria=parsed_data['success_criteria'],
-            estimated_duration=parsed_data['estimated_duration']
-        )
-        
-        logger.info(f"Parsed workflow: {workflow.name}")
-        
-        return workflow
-    
-    def validate_workflow_structure(self, workflow: ParsedWorkflow) -> Dict[str, Any]:
-        """
-        Validate the parsed workflow structure.
-        
-        Args:
-            workflow: Parsed workflow to validate
-            
-        Returns:
-            Validation results
-        """
-        validation_results = {
-            'is_valid': True,
-            'warnings': [],
-            'errors': [],
-            'suggestions': []
-        }
-        
-        # Check for required components
-        if not workflow.tasks:
-            validation_results['errors'].append("Workflow must have at least one task")
-            validation_results['is_valid'] = False
-        
-        if not workflow.agents:
-            validation_results['warnings'].append("No agents specified - may need manual assignment")
-        
-        if not workflow.objectives:
-            validation_results['warnings'].append("No clear objectives identified")
-        
-        # Check task dependencies
-        task_names = [task.name for task in workflow.tasks]
-        for dep_from, dep_to in workflow.dependencies:
-            if dep_from not in task_names:
-                validation_results['errors'].append(f"Dependency references unknown task: {dep_from}")
-                validation_results['is_valid'] = False
-            
-            if dep_to not in task_names:
-                validation_results['errors'].append(f"Dependency references unknown task: {dep_to}")
-                validation_results['is_valid'] = False
-        
-        # Check for circular dependencies
-        if self._has_circular_dependencies(workflow.dependencies):
-            validation_results['errors'].append("Circular dependencies detected")
-            validation_results['is_valid'] = False
-        
-        # Generate suggestions
-        if len(workflow.tasks) > 10:
-            validation_results['suggestions'].append("Consider breaking large workflow into sub-workflows")
-        
-        if workflow.estimated_duration > 480:  # 8 hours
-            validation_results['suggestions'].append("Long-running workflow - consider adding checkpoints")
-        
-        return validation_results
-    
-    def _has_circular_dependencies(self, dependencies: List[Tuple[str, str]]) -> bool:
-        """Check for circular dependencies in task list"""
-        if not dependencies:
-            return False
-        
-        # Build adjacency list
-        graph = {}
-        for from_task, to_task in dependencies:
-            if from_task not in graph:
-                graph[from_task] = []
-            graph[from_task].append(to_task)
-        
-        # DFS to detect cycles
-=======
         # Clean and preprocess the description
         cleaned_description = self._preprocess_description(description)
+        
+        # Use requirements parser for comprehensive analysis
+        parsed_data = self.requirements_parser.parse_requirements(description)
         
         # Extract workflow metadata
         workflow_name = self._extract_workflow_name(cleaned_description)
         workflow_type = self._classify_workflow_type(cleaned_description)
         
-        # Extract tasks
-        tasks = self._extract_tasks(cleaned_description)
+        # Convert tasks to dict format for consistency
+        tasks = []
+        for task_dict in parsed_data.get('tasks', []):
+            if isinstance(task_dict, dict):
+                # Convert ParsedTask dict to simple task dict
+                task = {
+                    "id": task_dict.get('name', f"task_{len(tasks)}"),
+                    "description": task_dict.get('description', ''),
+                    "type": task_dict.get('task_type', {}).get('value', 'general') if isinstance(task_dict.get('task_type'), dict) else str(task_dict.get('task_type', 'general')),
+                    "estimated_duration": int(task_dict.get('estimated_complexity', 1.0) * 10),  # Convert complexity to minutes
+                    "inputs": task_dict.get('inputs', []),
+                    "outputs": task_dict.get('outputs', []),
+                    "parameters": task_dict.get('parameters', {})
+                }
+                tasks.append(task)
         
-        # Identify dependencies
-        dependencies = self._extract_dependencies(cleaned_description, tasks)
-        
-        # Estimate duration
-        estimated_duration = self._estimate_duration(tasks)
+        # Convert dependencies to consistent format
+        dependencies = []
+        for dep in parsed_data.get('dependencies', []):
+            if isinstance(dep, tuple) and len(dep) == 2:
+                dependencies.append({"source": dep[0], "target": dep[1]})
+            elif isinstance(dep, dict):
+                dependencies.append(dep)
         
         # Calculate confidence score
         confidence_score = self._calculate_confidence(cleaned_description, tasks)
         
         # Extract additional metadata
         metadata = self._extract_metadata(cleaned_description, context)
+        metadata.update(parsed_data.get('metadata', {}))
         
         parsed_workflow = ParsedWorkflow(
             name=workflow_name,
             description=cleaned_description,
             workflow_type=workflow_type,
+            objectives=parsed_data.get('objectives', []),
             tasks=tasks,
+            agents=parsed_data.get('agents', []),
             dependencies=dependencies,
-            estimated_duration=estimated_duration,
+            constraints=parsed_data.get('constraints', []),
+            success_criteria=parsed_data.get('success_criteria', []),
+            estimated_duration=int(parsed_data.get('estimated_duration', 30)),
             confidence_score=confidence_score,
             metadata=metadata
         )
@@ -902,6 +788,18 @@ class WorkflowParser:
                    f"(confidence: {confidence_score:.2f})")
         
         return parsed_workflow
+    
+    def parse_workflow_description(self, description: str) -> ParsedWorkflow:
+        """
+        Parse a workflow description into structured components.
+        
+        Args:
+            description: Natural language workflow description
+            
+        Returns:
+            Parsed workflow structure
+        """
+        return self.parse_description(description)
     
     def parse_conversational_input(self, 
                                  conversation_history: List[str],
@@ -976,7 +874,7 @@ class WorkflowParser:
             "issues": issues,
             "suggestions": suggestions,
             "completeness_score": self._calculate_completeness(parsed_workflow),
-            "validation_timestamp": "2025-07-23T06:03:54Z"
+            "validation_timestamp": "2025-07-23T10:33:54Z"
         }
     
     def enhance_workflow_with_suggestions(self, 
@@ -1022,8 +920,12 @@ class WorkflowParser:
             name=parsed_workflow.name,
             description=parsed_workflow.description,
             workflow_type=parsed_workflow.workflow_type,
+            objectives=parsed_workflow.objectives,
             tasks=enhanced_tasks,
+            agents=parsed_workflow.agents,
             dependencies=enhanced_dependencies,
+            constraints=parsed_workflow.constraints,
+            success_criteria=parsed_workflow.success_criteria,
             estimated_duration=parsed_workflow.estimated_duration + 5,  # Add time for enhancements
             confidence_score=min(0.95, parsed_workflow.confidence_score + 0.1),
             metadata={**parsed_workflow.metadata, "enhanced": True}
@@ -1095,145 +997,6 @@ class WorkflowParser:
         
         return WorkflowType.GENERAL
     
-    def _extract_tasks(self, description: str) -> List[Dict[str, Any]]:
-        """Extract individual tasks from the description."""
-        tasks = []
-        
-        # Split description into sentences
-        sentences = re.split(r'[.!?]', description)
-        
-        # Look for task indicators
-        task_indicators = [
-            r'(?:first|then|next|after that|finally),?\s*(.+)',
-            r'step \d+:?\s*(.+)',
-            r'(?:need to|should|must|will)\s+(.+)',
-            r'(?:please|can you)\s+(.+)',
-            r'(?:i want to|i need to)\s+(.+)'
-        ]
-        
-        task_id = 0
-        for sentence in sentences:
-            sentence = sentence.strip()
-            if len(sentence) < 5:  # Skip very short sentences
-                continue
-            
-            # Check if sentence contains task indicators
-            is_task = False
-            task_description = sentence
-            
-            for pattern in task_indicators:
-                match = re.search(pattern, sentence)
-                if match:
-                    task_description = match.group(1).strip()
-                    is_task = True
-                    break
-            
-            # Also consider sentences with action verbs as tasks
-            action_verbs = ['analyze', 'process', 'create', 'generate', 'send', 'collect', 'transform', 'validate']
-            if not is_task and any(verb in sentence for verb in action_verbs):
-                is_task = True
-            
-            if is_task and len(task_description) > 5:
-                task_type = self._classify_task_type(task_description)
-                
-                tasks.append({
-                    "id": f"task_{task_id}",
-                    "description": task_description,
-                    "type": task_type,
-                    "estimated_duration": self._estimate_task_duration(task_description),
-                    "source_sentence": sentence
-                })
-                task_id += 1
-        
-        # If no tasks found through patterns, create a default task
-        if not tasks:
-            tasks.append({
-                "id": "task_0",
-                "description": description[:100] + "..." if len(description) > 100 else description,
-                "type": "general",
-                "estimated_duration": 10
-            })
-        
-        return tasks
-    
-    def _extract_dependencies(self, description: str, tasks: List[Dict[str, Any]]) -> List[Dict[str, str]]:
-        """Extract task dependencies from the description."""
-        dependencies = []
-        
-        # Look for explicit dependency indicators
-        dependency_patterns = [
-            r'(?:after|once|when)\s+(.+?),?\s+(?:then|next)\s+(.+)',
-            r'(?:first|initially)\s+(.+?),?\s+(?:then|followed by)\s+(.+)',
-            r'(.+?)\s+(?:before|prior to)\s+(.+)'
-        ]
-        
-        for pattern in dependency_patterns:
-            matches = re.finditer(pattern, description)
-            for match in matches:
-                source_text = match.group(1).strip()
-                target_text = match.group(2).strip()
-                
-                # Find matching tasks
-                source_task = self._find_matching_task(source_text, tasks)
-                target_task = self._find_matching_task(target_text, tasks)
-                
-                if source_task and target_task and source_task != target_task:
-                    dependencies.append({
-                        "source": source_task["id"],
-                        "target": target_task["id"]
-                    })
-        
-        # Create sequential dependencies if no explicit dependencies found
-        if not dependencies and len(tasks) > 1:
-            for i in range(len(tasks) - 1):
-                dependencies.append({
-                    "source": tasks[i]["id"],
-                    "target": tasks[i + 1]["id"]
-                })
-        
-        return dependencies
-    
-    def _classify_task_type(self, task_description: str) -> str:
-        """Classify the type of a task based on its description."""
-        task_type_keywords = {
-            "data_processing": ["process", "transform", "clean", "filter", "convert"],
-            "analysis": ["analyze", "examine", "evaluate", "assess", "review"],
-            "io": ["read", "write", "save", "load", "fetch", "download", "upload"],
-            "communication": ["send", "notify", "email", "message", "alert"],
-            "validation": ["validate", "verify", "check", "test", "confirm"],
-            "ml": ["predict", "model", "train", "classify", "recommend"]
-        }
-        
-        for task_type, keywords in task_type_keywords.items():
-            if any(keyword in task_description.lower() for keyword in keywords):
-                return task_type
-        
-        return "general"
-    
-    def _estimate_task_duration(self, task_description: str) -> int:
-        """Estimate task duration in minutes based on description."""
-        # Simple heuristic based on task complexity indicators
-        if any(keyword in task_description.lower() for keyword in ["analyze", "process", "transform"]):
-            return 15
-        elif any(keyword in task_description.lower() for keyword in ["send", "notify", "save"]):
-            return 2
-        elif any(keyword in task_description.lower() for keyword in ["train", "model", "ml"]):
-            return 60
-        else:
-            return 5
-    
-    def _estimate_duration(self, tasks: List[Dict[str, Any]]) -> int:
-        """Estimate total workflow duration."""
-        if not tasks:
-            return 10
-        
-        total_duration = sum(task.get("estimated_duration", 5) for task in tasks)
-        
-        # Add overhead for coordination and setup
-        overhead = len(tasks) * 2
-        
-        return total_duration + overhead
-    
     def _calculate_confidence(self, description: str, tasks: List[Dict[str, Any]]) -> float:
         """Calculate confidence score for the parsing."""
         confidence = 0.5  # Base confidence
@@ -1266,7 +1029,7 @@ class WorkflowParser:
         metadata = {
             "original_description": description,
             "word_count": len(description.split()),
-            "parsing_timestamp": "2025-07-23T06:03:54Z",
+            "parsing_timestamp": "2025-07-23T10:33:54Z",
             "parser_version": "1.0.0"
         }
         
@@ -1316,14 +1079,6 @@ class WorkflowParser:
             "customer_service": ["customer", "support", "ticket", "service", "help"]
         }
     
-    def _find_matching_task(self, text: str, tasks: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-        """Find a task that best matches the given text."""
-        for task in tasks:
-            task_desc = task.get("description", "").lower()
-            if any(word in task_desc for word in text.lower().split() if len(word) > 3):
-                return task
-        return None
-    
     def _extract_refinements(self, conversation_history: List[str]) -> Dict[str, Any]:
         """Extract refinements from conversation history."""
         refinements = {}
@@ -1356,23 +1111,10 @@ class WorkflowParser:
         for dep in dependencies:
             graph[dep["source"]].append(dep["target"])
         
->>>>>>> origin/copilot/fix-71b1051d-a728-419e-a2a5-887da1cf638d
         visited = set()
         rec_stack = set()
         
         def has_cycle(node):
-<<<<<<< HEAD
-            if node in rec_stack:
-                return True
-            if node in visited:
-                return False
-            
-            visited.add(node)
-            rec_stack.add(node)
-            
-            for neighbor in graph.get(node, []):
-                if has_cycle(neighbor):
-=======
             visited.add(node)
             rec_stack.add(node)
             
@@ -1381,24 +1123,16 @@ class WorkflowParser:
                     if has_cycle(neighbor):
                         return True
                 elif neighbor in rec_stack:
->>>>>>> origin/copilot/fix-71b1051d-a728-419e-a2a5-887da1cf638d
                     return True
             
             rec_stack.remove(node)
             return False
         
-<<<<<<< HEAD
-        # Check all nodes
-=======
->>>>>>> origin/copilot/fix-71b1051d-a728-419e-a2a5-887da1cf638d
         for node in graph:
             if node not in visited:
                 if has_cycle(node):
                     return True
         
-<<<<<<< HEAD
-        return False
-=======
         return False
     
     def _calculate_completeness(self, parsed_workflow: ParsedWorkflow) -> float:
@@ -1482,4 +1216,3 @@ class WorkflowParser:
                 })
         
         return dependencies
->>>>>>> origin/copilot/fix-71b1051d-a728-419e-a2a5-887da1cf638d
