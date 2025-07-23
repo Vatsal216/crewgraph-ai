@@ -280,13 +280,19 @@ class GraphOrchestrator:
         Add edge between nodes with full LangGraph integration.
 
         Args:
-            from_node: Source node name
+            from_node: Source node name (can be "START" for entry points)
             to_node: Target node name
         """
         if not self._state_graph:
             self.create_state_graph()
 
-        self._state_graph.add_edge(from_node, to_node)
+        # Handle START node specifically
+        if from_node == "START":
+            from langgraph.graph import START
+            self._state_graph.add_edge(START, to_node)
+        else:
+            self._state_graph.add_edge(from_node, to_node)
+            
         self._edges.append((from_node, to_node))
 
         logger.info(f"Edge added: {from_node} -> {to_node}")

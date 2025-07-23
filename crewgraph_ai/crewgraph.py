@@ -202,7 +202,7 @@ class CrewGraph:
         logger.info(f"CrewGraph '{name}' initialized with config: {self.config}")
 
     def add_agent(
-        self, agent: Union[AgentWrapper, Any], name: Optional[str] = None
+        self, agent: Union[AgentWrapper, Any, None] = None, name: Optional[str] = None, **kwargs
     ) -> AgentWrapper:
         """
         Add an agent to the workflow.
@@ -216,8 +216,10 @@ class CrewGraph:
                 - AgentWrapper: Pre-configured wrapper with state access
                 - CrewAI Agent: Raw agent that will be wrapped automatically
                 - Any object with execute() method: Custom agent implementation
+                - None: Create agent from kwargs parameters
             name: Optional name for the agent. Required if agent is not an
                 AgentWrapper. Must be unique within the workflow.
+            **kwargs: Additional parameters for AgentWrapper creation (role, goal, backstory, etc.)
 
         Returns:
             AgentWrapper instance that can be used for task assignment and
@@ -249,6 +251,14 @@ class CrewGraph:
                 state=shared_state
             )
             workflow.add_agent(wrapped_agent)
+            
+            # Create agent from parameters
+            wrapper = workflow.add_agent(
+                name="writer",
+                role="Content Writer",
+                goal="Write engaging content",
+                backstory="Professional writer with expertise in technical writing"
+            )
 
             # Verify agent was added
             print(f"Added agent: {wrapper.name}")
@@ -261,10 +271,17 @@ class CrewGraph:
         """
         if isinstance(agent, AgentWrapper):
             wrapper = agent
+        elif agent is None:
+            # Create agent from kwargs
+            if not name and 'name' not in kwargs:
+                raise ValidationError("Name required when creating agent from parameters")
+            agent_name = name or kwargs.pop('name')
+            wrapper = AgentWrapper(name=agent_name, state=self._state, **kwargs)
         else:
+            # Wrap existing agent
             if not name:
                 raise ValidationError("Name required when adding raw CrewAI agent")
-            wrapper = AgentWrapper(name=name, crew_agent=agent, state=self._state)
+            wrapper = AgentWrapper(name=name, crew_agent=agent, state=self._state, **kwargs)
 
         self._agents[wrapper.name] = wrapper
         self._agent_pool.add_agent(wrapper)
@@ -415,6 +432,32 @@ class CrewGraph:
             # Add tasks to orchestrator
             for task in self._tasks.values():
                 self._orchestrator.add_node(task.name, task.execute)
+
+            # Add task dependencies as edges
+            from langgraph.graph import START, END
+            entry_tasks = []  # Tasks with no dependencies (entry points)
+            
+            for task in self._tasks.values():
+                if task.dependencies:
+                    # Add edges from dependencies to this task
+                    for dep_name in task.dependencies:
+                        if dep_name in self._tasks:
+                            self._orchestrator.add_edge(dep_name, task.name)
+                        else:
+                            logger.warning(f"Dependency '{dep_name}' not found for task '{task.name}'")
+                else:
+                    # No dependencies - this is an entry task
+                    entry_tasks.append(task.name)
+            
+            # Connect entry tasks to START
+            for entry_task in entry_tasks:
+                self._orchestrator.add_edge("START", entry_task)
+            
+            # If no entry tasks found, connect the first task to START
+            if not entry_tasks and self._tasks:
+                first_task = next(iter(self._tasks.keys()))
+                self._orchestrator.add_edge("START", first_task)
+                logger.info(f"No entry tasks found, using '{first_task}' as entry point")
 
             # Add task chains
             for chain in self._task_chains:

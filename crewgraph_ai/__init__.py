@@ -86,6 +86,7 @@ from .communication import (
 
 # Main orchestration class for easy usage
 from .crewgraph import CrewGraph, CrewGraphConfig
+from .config import CrewGraphSettings, get_settings, configure, quick_setup
 
 # Intelligence imports
 from .intelligence import (
@@ -221,6 +222,11 @@ except ImportError:
     OPTIMIZATION_AVAILABLE = False
 
 __all__ = [
+    # Configuration
+    "CrewGraphSettings",
+    "get_settings", 
+    "configure",
+    "quick_setup",
     # Core classes
     "CrewGraph",
     "AgentWrapper",
