@@ -993,7 +993,10 @@ class ToolValidator:
                 return {"test_key": "test_value"}
             else:
                 return "test_value"
-        except:
+        except (TypeError, AttributeError, ValueError) as e:
+            # Log the error for debugging but return a safe default
+            logger = get_logger(__name__)
+            logger.debug(f"Failed to generate test value for {annotation}: {e}")
             return "test_value"
 
     def _calculate_score(self, result: ValidationResult) -> float:
