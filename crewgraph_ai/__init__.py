@@ -108,6 +108,12 @@ from .templates import (
     DataPipelineTemplate, ResearchWorkflowTemplate, ContentGenerationTemplate
 )
 
+# Security imports
+from .security import (
+    SecurityManager, RoleManager, Role, Permission, User,
+    AuditLogger, AuditEvent, EncryptionManager, CryptoConfig
+)
+
 # Visualization imports (optional)
 try:
     from .visualization import WorkflowVisualizer, ExecutionTracer, MemoryInspector, DebugTools
@@ -160,6 +166,17 @@ __all__ = [
     "DataPipelineTemplate",
     "ResearchWorkflowTemplate",
     "ContentGenerationTemplate",
+    
+    # Security classes
+    "SecurityManager",
+    "RoleManager",
+    "Role",
+    "Permission",
+    "User",
+    "AuditLogger", 
+    "AuditEvent",
+    "EncryptionManager",
+    "CryptoConfig",
     
     # Utilities
     "CrewGraphError",
