@@ -1,0 +1,59 @@
+# CrewGraph AI + Langflow Integration
+# Production Dockerfile
+
+FROM python:3.11-slim
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PIP_NO_CACHE_DIR=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Set work directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+COPY pyproject.toml .
+COPY setup.py .
+
+# Install Python dependencies
+RUN pip install --upgrade pip
+RUN pip install -r requirements.txt
+RUN pip install -e .
+
+# Create app user
+RUN adduser --disabled-password --gecos '' appuser
+
+# Create necessary directories
+RUN mkdir -p /app/workflows /app/custom_components /app/data /app/logs
+RUN chown -R appuser:appuser /app
+
+# Copy application code
+COPY crewgraph_ai/ /app/crewgraph_ai/
+COPY examples/ /app/examples/
+
+# Copy entrypoint script
+COPY deployment/langflow/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+# Switch to app user
+USER appuser
+
+# Expose ports
+EXPOSE 8000 9090
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/api/v1/health || exit 1
+
+# Run the application
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["python", "-m", "uvicorn", "crewgraph_ai.integrations.langflow.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
