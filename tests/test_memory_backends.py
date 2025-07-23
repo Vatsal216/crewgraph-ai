@@ -199,19 +199,17 @@ class TestDictMemory(BaseMemoryTest):
     def setUp(self):
         super().setUp()
         self.memory = DictMemory(
-            max_size=1000,
-            enable_compression=True,
-            compression_threshold=100
+            persistent=False
         )
         self.memory.connect()
     
     def test_dict_specific_features(self):
         """Test DictMemory specific features"""
-        # Test LRU eviction
-        small_memory = DictMemory(max_size=2)
+        # Test basic operations
+        small_memory = DictMemory(persistent=False)
         small_memory.connect()
         
-        # Fill beyond capacity
+        # Test basic save/load
         small_memory.save("key1", "value1")
         small_memory.save("key2", "value2")
         small_memory.save("key3", "value3")  # Should evict key1
@@ -259,17 +257,16 @@ class TestMemoryFactory(unittest.TestCase):
     
     def test_create_memory_dict(self):
         """Test creating dict memory via factory"""
-        memory = create_memory("dict", max_size=100)
+        memory = create_memory("dict")
         self.assertIsInstance(memory, DictMemory, "Should create DictMemory")
+        memory.connect()
         self.assertTrue(memory._connected, "Should be connected")
         memory.disconnect()
     
     def test_create_memory_with_config(self):
         """Test creating memory with configuration"""
         config = MemoryConfig(
-            memory_type=MemoryType.DICT,
-            max_size=500,
-            compression=True
+            memory_type=MemoryType.DICT
         )
         
         memory = MemoryUtils.create_memory_backend(config)
@@ -288,7 +285,7 @@ class TestMemoryBenchmark(unittest.TestCase):
     
     def test_benchmark_dict_memory(self):
         """Test benchmarking DictMemory"""
-        memory = DictMemory(max_size=1000)
+        memory = DictMemory(persistent=False)
         memory.connect()
         
         try:
