@@ -114,7 +114,21 @@ from .security import (
     AuditLogger, AuditEvent, EncryptionManager, CryptoConfig
 )
 
-# Visualization imports (optional)
+# Intelligence imports
+from .intelligence import (
+    WorkflowOptimizer, OptimizationStrategy, 
+    PerformancePredictor, ResourcePredictor,
+    BottleneckAnalyzer, ResourceAnalyzer,
+    MLModelManager, ModelType
+)
+
+# NLP imports
+from .nlp import (
+    RequirementsParser, WorkflowParser,
+    NLToWorkflowConverter, WorkflowToNLConverter,
+    ConversationalWorkflowBuilder,
+    DocumentationGenerator, CodeGenerator
+)
 try:
     from .visualization import WorkflowVisualizer, ExecutionTracer, MemoryInspector, DebugTools
     VISUALIZATION_AVAILABLE = True
@@ -177,6 +191,25 @@ __all__ = [
     "AuditEvent",
     "EncryptionManager",
     "CryptoConfig",
+    
+    # Intelligence classes
+    "WorkflowOptimizer",
+    "OptimizationStrategy",
+    "PerformancePredictor", 
+    "ResourcePredictor",
+    "BottleneckAnalyzer",
+    "ResourceAnalyzer",
+    "MLModelManager",
+    "ModelType",
+    
+    # NLP classes
+    "RequirementsParser",
+    "WorkflowParser",
+    "NLToWorkflowConverter",
+    "WorkflowToNLConverter", 
+    "ConversationalWorkflowBuilder",
+    "DocumentationGenerator",
+    "CodeGenerator",
     
     # Utilities
     "CrewGraphError",
