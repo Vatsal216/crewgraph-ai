@@ -33,6 +33,48 @@ except ImportError:
     SQLMemory = None
     SQL_AVAILABLE = False
 
+
+def create_memory(memory_type: str = "dict", **kwargs) -> BaseMemory:
+    """
+    Factory function to create memory backends
+    
+    Args:
+        memory_type: Type of memory backend ('dict', 'redis', 'faiss', 'sql')
+        **kwargs: Configuration parameters for the memory backend
+        
+    Returns:
+        BaseMemory: Configured memory backend instance
+        
+    Raises:
+        ValueError: If memory_type is invalid or backend not available
+    """
+    memory_type = memory_type.lower()
+    
+    if memory_type == "dict":
+        return DictMemory(**kwargs)
+    elif memory_type == "redis":
+        if not REDIS_AVAILABLE:
+            raise ValueError("Redis memory backend not available. Install with: pip install redis")
+        return RedisMemory(**kwargs)
+    elif memory_type == "faiss":
+        if not FAISS_AVAILABLE:
+            raise ValueError("FAISS memory backend not available. Install with: pip install faiss-cpu")
+        return FAISSMemory(**kwargs)
+    elif memory_type == "sql":
+        if not SQL_AVAILABLE:
+            raise ValueError("SQL memory backend not available. Install with: pip install sqlalchemy")
+        return SQLMemory(**kwargs)
+    else:
+        available_types = ["dict"]
+        if REDIS_AVAILABLE:
+            available_types.append("redis")
+        if FAISS_AVAILABLE:
+            available_types.append("faiss")
+        if SQL_AVAILABLE:
+            available_types.append("sql")
+        raise ValueError(f"Invalid memory_type '{memory_type}'. Available types: {available_types}")
+
+
 __all__ = [
     # Base classes
     "BaseMemory",
@@ -48,6 +90,9 @@ __all__ = [
     # Utilities
     "MemoryUtils",
     "MemorySerializer",
+    
+    # Factory function
+    "create_memory",
 ]
 
 # Add optional backends to __all__ if available
