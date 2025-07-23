@@ -104,6 +104,7 @@ class GraphOrchestrator:
         max_concurrent_nodes: int = 5,
         enable_checkpoints: bool = True,
         checkpoint_interval: int = 5,
+        state=None,  # Backward compatibility parameter
     ) -> None:
         """
         Initialize graph orchestrator.
@@ -113,6 +114,7 @@ class GraphOrchestrator:
             max_concurrent_nodes: Maximum parallel node execution
             enable_checkpoints: Enable workflow checkpointing
             checkpoint_interval: Checkpoint save interval (seconds)
+            state: Shared state (backward compatibility)
         """
         self.name: str = name
         self.id: WorkflowId = str(uuid.uuid4())
@@ -136,7 +138,7 @@ class GraphOrchestrator:
 
         # Execution tracking
         self.status: WorkflowStatus = WorkflowStatus.PENDING
-        self.shared_state: Optional[SharedState] = None
+        self.shared_state: Optional[SharedState] = state  # Use provided state if available
         self.start_time: Optional[float] = None
         self.end_time: Optional[float] = None
         self._execution_history: List[ExecutionEvent] = []
