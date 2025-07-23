@@ -506,9 +506,14 @@ class SecurityManager:
         try:
             # Try to decrypt as dict first
             return self.encryption.decrypt_dict(encrypted_data)
-        except:
+        except (ValueError, TypeError, AttributeError) as e:
             # Fall back to string decryption
-            return self.encryption.decrypt(encrypted_data)
+            try:
+                return self.encryption.decrypt(encrypted_data)
+            except Exception as decrypt_error:
+                logger = get_logger(__name__)
+                logger.error(f"Failed to decrypt sensitive data: {decrypt_error}")
+                raise CrewGraphError(f"Decryption failed: {decrypt_error}")
 
     def add_user_permission(self, user_id: str, permission: str) -> None:
         """Add permission to user"""

@@ -254,8 +254,10 @@ def get_logger(name: str) -> Union[logging.Logger, structlog.BoundLogger]:
     # Try to get structlog logger first
     try:
         return structlog.get_logger(name)
-    except:
-        # Fallback to standard logger
+    except (ImportError, AttributeError, TypeError) as e:
+        # Fallback to standard logger if structlog is not available or misconfigured
+        logger = logging.getLogger(__name__)
+        logger.debug(f"Falling back to standard logger for {name}: {e}")
         return logging.getLogger(name)
 
 
