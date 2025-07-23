@@ -24,8 +24,8 @@ class WorkflowBenchmark:
         self.memory = create_memory(memory_type)
         self.memory.connect()
         
-        self.state = SharedState(memory_backend=self.memory)
-        self.orchestrator = GraphOrchestrator(state=self.state)
+        self.state = SharedState(memory=self.memory)
+        self.orchestrator = GraphOrchestrator(name="benchmark_workflow")
         
         self.results = {}
         
