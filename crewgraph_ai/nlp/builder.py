@@ -686,12 +686,16 @@ class ConversationalWorkflowBuilder:
             # Extract number preference
             try:
                 import re
-
                 numbers = re.findall(r"\d+", answer)
                 if numbers:
                     session.workflow_data["preferred_agent_count"] = int(numbers[0])
-            except:
-                pass
+            except (ValueError, IndexError, TypeError) as e:
+                logger.warning(f"Failed to extract agent count from answer '{answer}': {e}")
+                # Set default fallback
+                session.workflow_data["preferred_agent_count"] = 3
+            except Exception as e:
+                logger.error(f"Unexpected error parsing agent count: {e}")
+                session.workflow_data["preferred_agent_count"] = 3
 
         elif question.context == "agent_delegation_preference":
             # Store delegation preference

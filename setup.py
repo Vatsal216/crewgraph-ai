@@ -19,7 +19,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/crewgraph/crewgraph-ai",
-    packages=find_packages(exclude=["tests*", "examples*"]),
+    packages=find_packages(),
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -45,6 +45,12 @@ setup(
         "asyncio-mqtt>=0.11.0",
         "structlog>=23.1.0",
         "psutil>=5.9.0",
+        "networkx>=3.0",
+        "redis>=4.5.0",
+        "faiss-cpu>=1.7.0",
+        "prometheus_client>=0.20.0",  # Added for metrics
+        "uvicorn>=0.20.0",
+        "fastapi>=0.100.0",
     ],
     extras_require={
         "redis": ["redis>=4.0.0", "hiredis>=2.0.0"],
